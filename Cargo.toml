@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/lineupper",
+    "crates/multitool",
+    "crates/statter"
+]
+
+[workspace.package]
+name = "bfc-multitool"
+edition = "2021"
+license = "MIT"
+version = "0.1.0"
+
+[workspace.dependencies]
+anyhow = "1.0"
+image = "0.25"
+lineupper = { path = "crates/lineupper" }
+multitool = { path = "crates/multitool" }
+serde = { version = "1.0", features = ["derive"] }
+statter = { path = "crates/statter" }
+strum = "0.26"
+strum_macros = "0.26"
+thiserror = "1.0"
+toml = "0.8"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = 2
+panic = "abort"
+strip = "symbols"
