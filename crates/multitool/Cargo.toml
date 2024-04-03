@@ -1,0 +1,18 @@
+[package]
+name = "multitool"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+build = "build.rs"
+
+[build-dependencies]
+winres = "0.1"
+
+[dependencies]
+eframe = { version = "0.27.2", features = ["default", "wgpu"] }
+egui_extras = "0.27.2"
+image.workspace = true
+lineupper.workspace = true
+rfd = "0.14.1"
+statter.workspace = true
+strum.workspace = true
