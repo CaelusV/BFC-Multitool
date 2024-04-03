@@ -1,0 +1,12 @@
+# combine_control_expr = false
+# control_brace_style = "ClosingNextLine"
+edition = "2021"
+# fn_single_line = true
+# force_multiline_blocks = true
+hard_tabs = true
+# imports_layout = "HorizontalVertical"
+match_block_trailing_comma = false
+newline_style = "Unix"
+# reorder_impl_items = true
+use_field_init_shorthand = true
+# wrap_comments = true

@@ -1,0 +1,13 @@
+[package]
+name = "multitool"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+eframe = { version = "0.27.2", features = ["default", "wgpu"] }
+egui_extras = "0.27.2"
+image.workspace = true
+lineupper.workspace = true
+rfd = "0.14.1"
+strum = "0.26.2"

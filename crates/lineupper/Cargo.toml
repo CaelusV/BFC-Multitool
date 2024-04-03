@@ -1,0 +1,15 @@
+[package]
+name = "lineupper"
+version.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.80"
+image.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+strum = "0.26.2"
+strum_macros = "0.26.2"
+thiserror = "1.0.57"
+toml = "0.8.10"
