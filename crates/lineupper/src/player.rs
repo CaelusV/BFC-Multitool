@@ -36,8 +36,13 @@ impl PlayerState {
 		position: Position,
 		active: bool,
 	) -> Self {
+		let captain = match captain {
+			true => Some(true),
+			false => None,
+		};
+
 		let player = Player {
-			captain: Some(captain),
+			captain,
 			id,
 			medal,
 			name,

@@ -2,7 +2,7 @@ pub mod create;
 pub mod player;
 pub mod roster;
 
-fn slugify(str: &str) -> String {
+pub fn slugify(str: &str) -> String {
 	str.to_ascii_lowercase()
 		.trim()
 		.replace(' ', "-")

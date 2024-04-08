@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use eframe::{
 	egui::{
 		self,
@@ -11,7 +13,7 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use lineupper::{
 	create::{create_team_file, FormatType},
 	player::{PlayerState, Position},
-	roster::{Roster, RosterFile},
+	roster::{Roster, RosterFile}, slugify,
 };
 use strum::VariantArray;
 
@@ -178,9 +180,8 @@ impl RosterEditor {
 				StripBuilder::new(ui)
 					.size(Size::exact(45.0))
 					.size(Size::exact(180.0))
-					.size(Size::exact(120.0))
-					.size(Size::exact(120.0))
-					.size(Size::exact(120.0))
+					.size(Size::exact(60.0))
+					.size(Size::exact(60.0))
 					.cell_layout(Layout::left_to_right(Align::Center))
 					.horizontal(|mut strip| {
 						strip.cell(|ui| {
@@ -204,7 +205,7 @@ impl RosterEditor {
 						strip.cell(|ui| {
 							if widget_creator::button(
 								ui,
-								"Import (MSRF)",
+								"Import",
 								Layout::left_to_right(Align::Center),
 							)
 							.clicked()
@@ -227,45 +228,42 @@ impl RosterEditor {
 						strip.cell(|ui| {
 							if widget_creator::button(
 								ui,
-								"Export (MSRF)",
+								"Export",
 								Layout::left_to_right(Align::Center),
 							)
 							.clicked()
 							{
 								if let Some(save_path) = rfd::FileDialog::new()
-									.set_title("Export roster file as MSRF")
+									.set_title("Export roster file")
+									.set_file_name(slugify(&self.team))
 									.add_filter("Mister Skeleton Roster Format", &["msrf"])
-									.save_file()
-								{
-									create_team_file(
-										&self.team,
-										RosterRow::to_roster(&self.rows),
-										&save_path,
-										FormatType::MSRF,
-									);
-								}
-							}
-						});
-
-						strip.cell(|ui| {
-							if widget_creator::button(
-								ui,
-								"Export (TOML)",
-								Layout::left_to_right(Align::Center),
-							)
-							.clicked()
-							{
-								if let Some(save_path) = rfd::FileDialog::new()
-									.set_title("Export roster file as TOML")
 									.add_filter("Tom's Obvious Minimal Language", &["toml"])
 									.save_file()
 								{
-									create_team_file(
-										&self.team,
-										RosterRow::to_roster(&self.rows),
-										&save_path,
-										FormatType::TOML,
-									);
+									let format_type = if let Some(extension) = save_path.extension()
+									{
+										match extension.to_string_lossy().to_string().as_str() {
+											"msrf" => Some(FormatType::MSRF),
+											"toml" => Some(FormatType::TOML),
+											_ => None,
+										}
+									} else {
+										None
+									};
+
+									let file_name = match save_path.file_stem() {
+										Some(name) => name.to_string_lossy(),
+										None => Cow::from(&self.team),
+									};
+
+									if let Some(format_type) = format_type {
+										create_team_file(
+											&file_name,
+											RosterRow::to_roster(&self.rows),
+											save_path.parent().unwrap(),
+											format_type,
+										);
+									}
 								}
 							}
 						});
