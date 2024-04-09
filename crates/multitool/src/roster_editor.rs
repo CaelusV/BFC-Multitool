@@ -13,8 +13,10 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use lineupper::{
 	create::{create_team_file, FormatType},
 	player::{PlayerState, Position},
-	roster::{Roster, RosterFile}, slugify,
+	roster::{Roster, RosterFile},
+	slugify,
 };
+use rfd::{FileDialog, MessageButtons, MessageDialog, MessageLevel};
 use strum::VariantArray;
 
 use crate::{setup::setup_custom_fonts, widget_creator};
@@ -163,6 +165,15 @@ impl RosterEditor {
 			});
 	}
 
+	fn error_message(title: &str, msg: &str) {
+		MessageDialog::new()
+			.set_level(MessageLevel::Error)
+			.set_title(title)
+			.set_description(msg)
+			.set_buttons(MessageButtons::Ok)
+			.show();
+	}
+
 	pub fn heading(&mut self, ui: &mut Ui) {
 		let mut margin = Self::INNER_MARGIN;
 		margin.bottom = 10.0;
@@ -210,16 +221,31 @@ impl RosterEditor {
 							)
 							.clicked()
 							{
-								if let Some(path) = rfd::FileDialog::new()
+								if let Some(path) = FileDialog::new()
 									.set_title("Import MSRF roster file")
 									.add_filter("Mister Skeleton Roster Format", &["msrf"])
 									.pick_file()
 								{
-									if let Ok(roster_file) = RosterFile::get_rosterfile(path) {
-										let rows =
-											RosterRow::from_roster(Roster::from(&roster_file));
-										self.rows = rows;
-										self.team = roster_file.team;
+									match RosterFile::get_rosterfile(path) {
+										Ok(roster_file) => {
+											match Roster::from(&roster_file) {
+												Ok(roster) => {
+													let rows = RosterRow::from_roster(roster);
+													self.rows = rows;
+													self.team = roster_file.team;
+												}
+												Err(e) => Self::error_message(
+													"Import Error",
+													&e.to_string(),
+												),
+											};
+										}
+										Err(rosterfile_error) => {
+											Self::error_message(
+												"Import Error",
+												&rosterfile_error.to_string(),
+											);
+										}
 									}
 								}
 							}
@@ -233,36 +259,33 @@ impl RosterEditor {
 							)
 							.clicked()
 							{
-								if let Some(save_path) = rfd::FileDialog::new()
+								if let Some(save_path) = FileDialog::new()
 									.set_title("Export roster file")
 									.set_file_name(slugify(&self.team))
 									.add_filter("Mister Skeleton Roster Format", &["msrf"])
 									.add_filter("Tom's Obvious Minimal Language", &["toml"])
 									.save_file()
 								{
-									let format_type = if let Some(extension) = save_path.extension()
-									{
-										match extension.to_string_lossy().to_string().as_str() {
-											"msrf" => Some(FormatType::MSRF),
-											"toml" => Some(FormatType::TOML),
-											_ => None,
-										}
-									} else {
-										None
-									};
-
 									let file_name = match save_path.file_stem() {
 										Some(name) => name.to_string_lossy(),
 										None => Cow::from(&self.team),
 									};
 
-									if let Some(format_type) = format_type {
-										create_team_file(
-											&file_name,
-											RosterRow::to_roster(&self.rows),
-											save_path.parent().unwrap(),
-											format_type,
-										);
+									match FormatType::from_extension(save_path.extension()) {
+										Some(format_type) => {
+											if let Err(e) = create_team_file(
+												&file_name,
+												RosterRow::to_roster(&self.rows),
+												save_path.parent().unwrap(),
+												format_type,
+											) {
+												Self::error_message("Export Error", &e.to_string());
+											}
+										}
+										None => Self::error_message(
+											"Export Error",
+											"Failed to parse file extension",
+										),
 									}
 								}
 							}

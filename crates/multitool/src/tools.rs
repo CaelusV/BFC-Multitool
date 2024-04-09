@@ -2,6 +2,7 @@ use std::{ffi::OsStr, path::PathBuf};
 
 use eframe::egui::{self, Align, Color32, Layout, Margin, Response, Ui};
 use egui_extras::{Size, StripBuilder};
+use rfd::{MessageButtons, MessageDialog, MessageLevel};
 
 use crate::widget_creator;
 
@@ -74,27 +75,51 @@ impl Tools {
 
 	fn run(&mut self, ui: &mut Ui, tool: &ToolItem) {
 		if widget_creator::button(ui, "Run", Layout::left_to_right(Align::Center)).clicked() {
+			let path = match tool {
+				&ToolItem::LineUpper if self.lineupper_target_path.is_some() => {
+					self.lineupper_target_path.as_ref().unwrap()
+				}
+				&ToolItem::Statter if self.statter_target_path.is_some() => {
+					self.statter_target_path.as_ref().unwrap()
+				}
+				_ => {
+					MessageDialog::new()
+						.set_level(MessageLevel::Error)
+						.set_title("Run Error")
+						.set_description("No folder was targeted.")
+						.set_buttons(MessageButtons::Ok)
+						.show();
+					return;
+				}
+			};
+
 			if let Some(output_path) = rfd::FileDialog::new()
 				.set_title("Choose location to save output folder")
 				.pick_folder()
 			{
+				let error;
 				match tool {
-					&ToolItem::Statter => {
-						if let Some(path) = &self.statter_target_path {
-							statter::entry::run_tournaments(path, &output_path);
-						}
-					}
 					&ToolItem::LineUpper => {
-						if let Some(path) = &self.lineupper_target_path {
-							lineupper::create::create_team_and_portraits(path, &output_path)
-						}
+						error = lineupper::create::create_team_and_portraits(path, &output_path)
 					}
+					&ToolItem::Statter => {
+						error = statter::entry::run_tournaments(path, &output_path)
+					}
+				}
+				if let Err(e) = error {
+					MessageDialog::new()
+						.set_level(MessageLevel::Error)
+						.set_title("Run Error")
+						.set_description(e.to_string())
+						.set_buttons(MessageButtons::Ok)
+						.show();
 				}
 			}
 		}
 	}
 }
 
+#[derive(PartialEq)]
 pub enum ToolItem {
 	LineUpper,
 	Statter,

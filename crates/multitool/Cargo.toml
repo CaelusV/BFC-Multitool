@@ -9,6 +9,7 @@ build = "build.rs"
 winres = "0.1"
 
 [dependencies]
+anyhow.workspace = true
 eframe = { version = "0.27.2", features = ["default", "wgpu"] }
 egui_extras = "0.27.2"
 image.workspace = true

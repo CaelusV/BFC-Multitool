@@ -1,5 +1,6 @@
 use std::fmt;
 
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{fixture::GreatestFixture, tournament::Participation};
@@ -42,9 +43,11 @@ impl MatchupHistory {
 		}
 	}
 
-	pub fn add(&mut self, other: &Self) {
+	pub fn add(&mut self, other: &Self) -> Result<()> {
 		if self.opponent_name != other.opponent_name {
-			panic!("Can't add MatchupHistorys with different names together");
+			return Err(anyhow!(
+				"Can't add 'MatchupHistory's with different names together"
+			));
 		}
 
 		self.goals_against += other.goals_against;
@@ -55,6 +58,7 @@ impl MatchupHistory {
 		self.wins += other.wins;
 		self.draws += other.draws;
 		self.losses += other.losses;
+		Ok(())
 	}
 }
 
@@ -97,7 +101,7 @@ impl Team {
 		}
 	}
 
-	pub fn add(&mut self, other: &mut Self) {
+	pub fn add(&mut self, other: &mut Self) -> Result<()> {
 		assert_eq!(self.name, other.name);
 		self.goals_against += other.goals_against;
 		self.goals_for += other.goals_for;
@@ -108,10 +112,10 @@ impl Team {
 		self.draws += other.draws;
 		self.losses += other.losses;
 		if let Some(other_greatest_loss) = other.greatest_loss.as_ref() {
-			self.try_add_greatest_loss(other_greatest_loss);
+			self.try_add_greatest_loss(other_greatest_loss)?;
 		}
 		if let Some(other_greatest_win) = other.greatest_win.as_ref() {
-			self.try_add_greatest_win(other_greatest_win);
+			self.try_add_greatest_win(other_greatest_win)?;
 		}
 
 		if self.matchups.is_none() {
@@ -126,18 +130,18 @@ impl Team {
 						.iter_mut()
 						.find(|m| m.opponent_name == matchup.opponent_name)
 					{
-						matchup_self.add(&matchup);
+						matchup_self.add(&matchup)?;
 					} else {
 						matchups_self.push(matchup.clone());
 					}
 				}
 			}
 		}
-
-		if other.participations.is_some() {
+		if let Some(other_participations) = &mut other.participations {
 			let participations = self.participations.get_or_insert(Vec::new());
-			participations.append(&mut other.participations.as_mut().unwrap());
+			participations.append(other_participations);
 		}
+		Ok(())
 	}
 
 	pub fn filename(&self) -> String {
@@ -157,15 +161,15 @@ impl Team {
 		self.greatest_loss = None;
 	}
 
-	fn try_add_greatest(&mut self, g_fixture: &GreatestFixture, win: bool) -> bool {
+	fn try_add_greatest(&mut self, g_fixture: &GreatestFixture, win: bool) -> Result<bool> {
 		// Make sure the team has played this fixture.
 		if g_fixture.fixture.team1 != self.name && g_fixture.fixture.team2 != self.name {
-			return false;
+			return Ok(false);
 		}
 
-		if let Some(winner) = g_fixture.fixture.winner().unwrap() {
+		if let Some(winner) = g_fixture.fixture.winner()? {
 			if (win && winner != self.name) || (!win && winner == self.name) {
-				return false;
+				return Ok(false);
 			}
 		}
 
@@ -174,7 +178,7 @@ impl Team {
 				Some(gw) => gw,
 				None => {
 					self.greatest_win = Some(g_fixture.clone());
-					return true;
+					return Ok(true);
 				}
 			}
 		} else {
@@ -182,7 +186,7 @@ impl Team {
 				Some(gl) => gl,
 				None => {
 					self.greatest_loss = Some(g_fixture.clone());
-					return true;
+					return Ok(true);
 				}
 			}
 		};
@@ -228,20 +232,21 @@ impl Team {
 			}
 		}
 
-		is_greatest
+		Ok(is_greatest)
 	}
 
-	pub fn try_add_greatest_loss(&mut self, other: &GreatestFixture) -> bool {
+	pub fn try_add_greatest_loss(&mut self, other: &GreatestFixture) -> Result<bool> {
 		self.try_add_greatest(other, false)
 	}
 
-	pub fn try_add_greatest_win(&mut self, other: &GreatestFixture) -> bool {
+	pub fn try_add_greatest_win(&mut self, other: &GreatestFixture) -> Result<bool> {
 		self.try_add_greatest(other, true)
 	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub enum TeamName {
+	Unknown,
 	#[serde(rename = "Alpha Space Bros")]
 	AlphaSpaceBros,
 	Autoism,
@@ -265,6 +270,7 @@ pub enum TeamName {
 impl fmt::Display for TeamName {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let s = match self {
+			TeamName::Unknown => "Unknown",
 			TeamName::AlphaSpaceBros => "Alpha Space Bros",
 			TeamName::Autoism => "Autoism",
 			TeamName::BigFunky => "Big Funky",

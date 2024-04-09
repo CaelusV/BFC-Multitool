@@ -1,11 +1,12 @@
 use std::{
+	ffi::OsString,
 	fs::{self, File},
 	io::{BufRead, BufReader},
 	path::{Path, PathBuf},
 };
 
 use crate::player::{Player, PlayerError, PlayerState};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -16,8 +17,8 @@ pub struct Roster {
 }
 
 impl Roster {
-	pub fn from(roster_file: &RosterFile) -> Roster {
-		let file = File::open(&roster_file.path).unwrap();
+	pub fn from(roster_file: &RosterFile) -> Result<Roster> {
+		let file = File::open(&roster_file.path)?;
 		let reader = BufReader::new(file);
 		let mut active_players = Vec::new();
 		let mut reserve_players = Vec::new();
@@ -28,17 +29,19 @@ impl Roster {
 					Ok(PlayerState::Active(p)) => active_players.push(p),
 					Ok(PlayerState::Reserve(p)) => reserve_players.push(p),
 					Err(e) if e.downcast_ref() == Some(&PlayerError::NotAPlayer) => (),
-					Err(e) => eprintln!("Error: {e}"),
+					Err(e) => return Err(e),
 				},
-				Err(e) => eprintln!(
-					"Failed to read line in '{}': {}.",
-					roster_file.path.display(),
-					e.to_string()
-				),
+				Err(e) => {
+					return Err(anyhow!(
+						"Failed to read line in '{}': {}.",
+						roster_file.path.display(),
+						e.to_string()
+					))
+				}
 			}
 		}
 
-		Self::from_players(active_players, reserve_players)
+		Ok(Self::from_players(active_players, reserve_players))
 	}
 
 	pub fn from_players(active: Vec<Player>, reserve: Vec<Player>) -> Self {
@@ -103,9 +106,13 @@ impl Roster {
 }
 
 #[derive(Error, Debug, PartialEq)]
-enum RosterFileError {
+pub enum RosterFileError {
 	#[error("Not a roster file.")]
 	NotARosterFile,
+	#[error("Roster file is missing a header.")]
+	MissingHeader,
+	#[error("File extension '{0:?}' couldn't be converted")]
+	InvalidExtension(OsString),
 }
 
 pub struct RosterFile {
@@ -120,43 +127,41 @@ impl RosterFile {
 			.ok_or_else(|| RosterFileError::NotARosterFile)?
 			.to_ascii_lowercase()
 			.into_string()
-			.unwrap();
+			.map_err(|e| RosterFileError::InvalidExtension(e))?;
 
 		if !path.is_file() || file_extension != "msrf" {
 			return Err(RosterFileError::NotARosterFile.into());
 		}
 
-		let file = File::open(&path).unwrap();
+		let file = File::open(&path)?;
 		let mut reader = BufReader::new(file);
 		let mut file_header = String::new();
-		reader.read_line(&mut file_header).unwrap();
+		reader.read_line(&mut file_header)?;
 		let file_header = file_header.trim();
 		let team = file_header.replace('-', "").trim().to_string();
 
 		if !file_header.starts_with("---") || !file_header.ends_with("---") || team.is_empty() {
-			return Err(RosterFileError::NotARosterFile.into());
+			return Err(RosterFileError::MissingHeader.into());
 		}
 
 		Ok(RosterFile { path, team })
 	}
 
-	pub(crate) fn get_rosterfiles(folder: &PathBuf) -> Vec<RosterFile> {
+	pub(crate) fn get_rosterfiles(folder: &PathBuf) -> Result<Vec<RosterFile>> {
 		let mut rosterfiles = Vec::new();
-		let entries = fs::read_dir(folder).expect("Failed to read directory");
+		let entries = fs::read_dir(folder)?;
 
 		for entry in entries {
 			match entry {
 				Ok(entry) => match Self::get_rosterfile(entry.path()) {
 					Ok(r) => rosterfiles.push(r),
 					Err(e) if e.downcast_ref() == Some(&RosterFileError::NotARosterFile) => (),
-					Err(e) => eprintln!("Error: {e}"),
+					Err(e) => return Err(e),
 				},
-				Err(e) => {
-					eprintln!("Error: {}", e.to_string())
-				}
+				Err(e) => return Err(e.into()),
 			}
 		}
 
-		rosterfiles
+		Ok(rosterfiles)
 	}
 }

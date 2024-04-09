@@ -2189,6 +2189,7 @@ dependencies = [
 name = "multitool"
 version = "1.0.1"
 dependencies = [
+ "anyhow",
  "eframe",
  "egui_extras",
  "image 0.25.1",
