@@ -16,10 +16,10 @@ use lineupper::{
 	roster::{Roster, RosterFile},
 	slugify,
 };
-use rfd::{FileDialog, MessageButtons, MessageDialog, MessageLevel};
+use rfd::FileDialog;
 use strum::VariantArray;
 
-use crate::{setup::setup_custom_fonts, widget_creator};
+use crate::{message::Message, setup::setup_custom_fonts, widget_creator};
 
 pub struct RosterEditor {
 	rows: [RosterRow; 23],
@@ -165,15 +165,6 @@ impl RosterEditor {
 			});
 	}
 
-	fn error_message(title: &str, msg: &str) {
-		MessageDialog::new()
-			.set_level(MessageLevel::Error)
-			.set_title(title)
-			.set_description(msg)
-			.set_buttons(MessageButtons::Ok)
-			.show();
-	}
-
 	pub fn heading(&mut self, ui: &mut Ui) {
 		let mut margin = Self::INNER_MARGIN;
 		margin.bottom = 10.0;
@@ -234,14 +225,14 @@ impl RosterEditor {
 													self.rows = rows;
 													self.team = roster_file.team;
 												}
-												Err(e) => Self::error_message(
+												Err(e) => Message::error_message(
 													"Import Error",
 													&e.to_string(),
 												),
 											};
 										}
 										Err(rosterfile_error) => {
-											Self::error_message(
+											Message::error_message(
 												"Import Error",
 												&rosterfile_error.to_string(),
 											);
@@ -279,10 +270,10 @@ impl RosterEditor {
 												save_path.parent().unwrap(),
 												format_type,
 											) {
-												Self::error_message("Export Error", &e.to_string());
+												Message::error_message("Export Error", &e.to_string());
 											}
 										}
-										None => Self::error_message(
+										None => Message::error_message(
 											"Export Error",
 											"Failed to parse file extension",
 										),

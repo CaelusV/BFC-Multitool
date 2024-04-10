@@ -1,10 +1,11 @@
+use core::fmt;
 use std::{ffi::OsStr, path::PathBuf};
 
 use eframe::egui::{self, Align, Color32, Layout, Margin, Response, Ui};
 use egui_extras::{Size, StripBuilder};
 use rfd::{MessageButtons, MessageDialog, MessageLevel};
 
-use crate::widget_creator;
+use crate::{message::Message, widget_creator};
 
 #[derive(Default)]
 pub struct Tools {
@@ -67,7 +68,7 @@ impl Tools {
 							None => "No folder targeted",
 						};
 
-						ui.colored_label(Color32::BLACK, format!("{} ({folder})", tool.to_str()));
+						ui.colored_label(Color32::BLACK, format!("{} ({folder})", tool));
 					},
 				);
 			});
@@ -113,23 +114,22 @@ impl Tools {
 						.set_description(e.to_string())
 						.set_buttons(MessageButtons::Ok)
 						.show();
+				} else {
+					Message::info_message("Task Complete", &format!("{tool} has successfully completed its task."))
 				}
 			}
 		}
 	}
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ToolItem {
 	LineUpper,
 	Statter,
 }
 
-impl ToolItem {
-	fn to_str(&self) -> &'static str {
-		match self {
-			ToolItem::LineUpper => "LineUpper",
-			ToolItem::Statter => "Statter",
-		}
+impl fmt::Display for ToolItem {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{:?}", self)
 	}
 }
