@@ -3,9 +3,8 @@ use std::{ffi::OsStr, path::PathBuf};
 
 use eframe::egui::{self, Align, Color32, Layout, Margin, Response, Ui};
 use egui_extras::{Size, StripBuilder};
-use rfd::{MessageButtons, MessageDialog, MessageLevel};
 
-use crate::widget_creator;
+use crate::{message::Message, widget_creator};
 
 #[derive(Default)]
 pub struct Tools {
@@ -84,18 +83,13 @@ impl Tools {
 					self.statter_target_path.as_ref().unwrap()
 				}
 				_ => {
-					MessageDialog::new()
-						.set_level(MessageLevel::Error)
-						.set_title("Run Error")
-						.set_description("No folder was targeted.")
-						.set_buttons(MessageButtons::Ok)
-						.show();
+					Message::error_message("Run Error", "No folder was targeted.");
 					return;
 				}
 			};
 
 			if let Some(output_path) = rfd::FileDialog::new()
-				.set_title("Choose location to save output folder")
+				.set_title("Choose location to save output")
 				.pick_folder()
 			{
 				let error;
@@ -108,15 +102,7 @@ impl Tools {
 					}
 				}
 				if let Err(e) = error {
-					MessageDialog::new()
-						.set_level(MessageLevel::Error)
-						.set_title("Run Error")
-						.set_description(e.to_string())
-						.set_buttons(MessageButtons::Ok)
-						.show();
-				} else {
-					// NOTE: Would be nice to have, but it might bug out with lineupper, since it takes a long time to complete.
-					// Message::info_message("Task Complete", &format!("{tool} has successfully completed its task."))
+					Message::error_message("Run Error", &e.to_string());
 				}
 			}
 		}
