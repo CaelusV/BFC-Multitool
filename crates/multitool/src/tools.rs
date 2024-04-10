@@ -5,7 +5,7 @@ use eframe::egui::{self, Align, Color32, Layout, Margin, Response, Ui};
 use egui_extras::{Size, StripBuilder};
 use rfd::{MessageButtons, MessageDialog, MessageLevel};
 
-use crate::{message::Message, widget_creator};
+use crate::widget_creator;
 
 #[derive(Default)]
 pub struct Tools {
@@ -115,7 +115,8 @@ impl Tools {
 						.set_buttons(MessageButtons::Ok)
 						.show();
 				} else {
-					Message::info_message("Task Complete", &format!("{tool} has successfully completed its task."))
+					// NOTE: Would be nice to have, but it might bug out with lineupper, since it takes a long time to complete.
+					// Message::info_message("Task Complete", &format!("{tool} has successfully completed its task."))
 				}
 			}
 		}

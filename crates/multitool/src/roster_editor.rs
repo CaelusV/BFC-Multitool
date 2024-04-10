@@ -270,7 +270,10 @@ impl RosterEditor {
 												save_path.parent().unwrap(),
 												format_type,
 											) {
-												Message::error_message("Export Error", &e.to_string());
+												Message::error_message(
+													"Export Error",
+													&e.to_string(),
+												);
 											}
 										}
 										None => Message::error_message(
