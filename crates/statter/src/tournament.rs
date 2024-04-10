@@ -308,13 +308,14 @@ impl<'a> PlayoffStage<'a> {
 		}
 
 		// Fill in Head To Head between equal teams.
-		// TODO: Figure out how this is supposed to work... What does it mean???
-		if let Some(h2h_placement) = &self.tournament.head_to_head {
-			let tp = self
-				.placements
-				.get_mut(&h2h_placement.team)
-				.expect(&format!("{:?}", h2h_placement.team));
-			tp.team.head_to_head = Some(h2h_placement.placement);
+		if let Some(h2h) = &self.tournament.head_to_head {
+			for h2h_placement in h2h {
+				let tp = self
+					.placements
+					.get_mut(&h2h_placement.team)
+					.expect(&format!("{:?}", h2h_placement.team));
+				tp.team.head_to_head = Some(h2h_placement.placement);
+			}
 		}
 
 		// Order the teams after placement, then goal difference, then goals for.
@@ -572,7 +573,7 @@ pub struct Tournament {
 	pub playoff_teams: u8,
 	pub brackets: Brackets,
 	pub grand_final: Option<Vec<Fixture>>,
-	pub head_to_head: Option<HeadToHead>,
+	pub head_to_head: Option<Vec<HeadToHead>>,
 }
 
 impl Tournament {
