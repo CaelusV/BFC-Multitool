@@ -45,7 +45,7 @@ pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> R
 pub fn create_team_file(
 	team: &str,
 	mut roster: Roster,
-	output_folder: &Path,
+	output: &Path,
 	format_type: FormatType,
 ) -> Result<()> {
 	if roster.player_count() < 23 {
@@ -55,28 +55,25 @@ pub fn create_team_file(
 		)
 	}
 
-	let extension;
 	let file = match format_type {
 		FormatType::TOML => {
-			extension = ".toml";
 			roster.sort();
 			toml::to_string(&roster)?
 		}
 		FormatType::MSRF => {
-			extension = ".msrf";
 			Roster::to_msrf_string(team, &roster)
 		}
 	};
 
-	if !output_folder.is_dir() {
-		if let Err(e) = fs::create_dir(&output_folder) {
-			return Err(anyhow!("Failed to create output folder: {e}"));
+	if let Some(p) = output.parent() {
+		if !p.is_dir() {
+			if let Err(e) = fs::create_dir(&p) {
+				return Err(anyhow!("Failed to create output folder: {e}"));
+			}
 		}
 	}
 
-	let output_file = output_folder.join(slugify(team) + extension);
-
-	fs::write(output_file, file)?;
+	fs::write(output, file)?;
 	Ok(())
 }
 

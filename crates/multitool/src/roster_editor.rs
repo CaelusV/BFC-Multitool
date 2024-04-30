@@ -265,9 +265,9 @@ impl RosterEditor {
 									match FormatType::from_extension(save_path.extension()) {
 										Some(format_type) => {
 											if let Err(e) = create_team_file(
-												&file_name,
+												&self.team,
 												RosterRow::to_roster(&self.rows),
-												save_path.parent().unwrap(),
+												&save_path,
 												format_type,
 											) {
 												Message::error_message(
