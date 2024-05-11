@@ -29,6 +29,7 @@ impl FormatType {
 
 pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> {
 	let rosterfiles = RosterFile::get_rosterfiles(folder)?;
+	println!("worked");
 	if rosterfiles.is_empty() {
 		return Err(anyhow!("No roster files found."));
 	}
@@ -45,7 +46,7 @@ pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> R
 pub fn create_team_file(
 	team: &str,
 	mut roster: Roster,
-	output: &Path,
+	output_folder: &Path,
 	format_type: FormatType,
 ) -> Result<()> {
 	if roster.player_count() < 23 {
@@ -65,15 +66,13 @@ pub fn create_team_file(
 		}
 	};
 
-	if let Some(p) = output.parent() {
-		if !p.is_dir() {
-			if let Err(e) = fs::create_dir(&p) {
-				return Err(anyhow!("Failed to create output folder: {e}"));
-			}
+	if !output_folder.is_dir() {
+		if let Err(e) = fs::create_dir_all(&output_folder) {
+			return Err(anyhow!("Failed to create output folder: {e}"));
 		}
 	}
 
-	fs::write(output, file)?;
+	fs::write(output_folder.join(slugify(team) + ".toml"), file)?;
 	Ok(())
 }
 
