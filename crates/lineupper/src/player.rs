@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use strum_macros::VariantArray;
 use thiserror::Error;
 
-#[derive(Serialize, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum Medal {
 	Silver,
 	Gold,
@@ -188,7 +188,7 @@ impl PlayerState {
 	}
 }
 
-#[derive(Serialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Player {
 	pub captain: Option<bool>,
 	pub id: u8,
@@ -200,7 +200,7 @@ pub struct Player {
 
 impl Player {}
 
-#[derive(Serialize, VariantArray, Default, Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, VariantArray, Default, Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Position {
 	GK,
 	LB,

@@ -5,7 +5,6 @@ use std::ops::{Deref, DerefMut};
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use toml::value::Datetime;
 
 use crate::fixture::{Fixture, GreatestFixture};
@@ -585,12 +584,6 @@ impl Tournament {
 
 		playoffs.run()
 	}
-}
-
-#[derive(Error, Debug)]
-enum TournamentError {
-	#[error("temp error")]
-	TempError,
 }
 
 #[derive(Serialize)]

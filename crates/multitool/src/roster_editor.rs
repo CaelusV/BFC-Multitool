@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use eframe::{
 	egui::{
 		self,
@@ -215,29 +213,55 @@ impl RosterEditor {
 								if let Some(path) = FileDialog::new()
 									.set_title("Import MSRF roster file")
 									.add_filter("Mister Skeleton Roster Format", &["msrf"])
+									.add_filter("Tom's Obvious Minimal Language", &["toml"])
 									.pick_file()
 								{
-									match RosterFile::get_rosterfile(path) {
-										Ok(roster_file) => {
-											match Roster::from(&roster_file) {
+									match FormatType::from_extension(path.extension()) {
+										Some(FormatType::MSRF) => {
+											match RosterFile::get_rosterfile(path) {
+												Ok(roster_file) => {
+													match Roster::from_rosterfile(&roster_file) {
+														Ok(roster) => {
+															let rows = RosterRow::from_roster(roster);
+															self.rows = rows;
+															self.team = roster_file.team;
+														}
+														Err(e) => Message::error_message(
+															"Import Error",
+															&e.to_string(),
+														),
+													};
+												}
+												Err(rosterfile_error) => {
+													Message::error_message(
+														"Import Error",
+														&rosterfile_error.to_string(),
+													);
+												}
+											}
+										}
+										Some(FormatType::TOML) => {
+											match Roster::from_toml(path) {
 												Ok(roster) => {
 													let rows = RosterRow::from_roster(roster);
 													self.rows = rows;
-													self.team = roster_file.team;
+													self.team = "".to_string();
 												}
-												Err(e) => Message::error_message(
-													"Import Error",
-													&e.to_string(),
-												),
-											};
+												Err(roster_error) => {
+													Message::error_message(
+														"Import Error",
+														&roster_error.to_string(),
+													);
+												}
+											}
 										}
-										Err(rosterfile_error) => {
-											Message::error_message(
-												"Import Error",
-												&rosterfile_error.to_string(),
-											);
-										}
+										None => Message::error_message(
+											"Import Error",
+											"Failed to parse file extension",
+										),
 									}
+
+
 								}
 							}
 						});
@@ -257,11 +281,6 @@ impl RosterEditor {
 									.add_filter("Tom's Obvious Minimal Language", &["toml"])
 									.save_file()
 								{
-									let file_name = match save_path.file_stem() {
-										Some(name) => name.to_string_lossy(),
-										None => Cow::from(&self.team),
-									};
-
 									match FormatType::from_extension(save_path.extension()) {
 										Some(format_type) => {
 											if let Err(e) = create_team_file(
@@ -414,7 +433,7 @@ impl RosterRow {
 	}
 
 	fn from_roster(roster: Roster) -> [RosterRow; 23] {
-		// Convert all players to RosterRow, and move reserve to active.
+		// Convert all players to RosterRow, and move reserve and active into 1 vec.
 		let mut roster_active: Vec<RosterRow> = roster
 			.active
 			.into_iter()

@@ -7,17 +7,17 @@ use std::{
 
 use crate::player::{Player, PlayerError, PlayerState};
 use anyhow::{anyhow, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Roster {
 	pub active: Vec<Player>,
 	pub reserve: Vec<Player>,
 }
 
 impl Roster {
-	pub fn from(roster_file: &RosterFile) -> Result<Roster> {
+	pub fn from_rosterfile(roster_file: &RosterFile) -> Result<Self> {
 		let file = File::open(&roster_file.path)?;
 		let reader = BufReader::new(file);
 		let mut active_players = Vec::new();
@@ -42,6 +42,11 @@ impl Roster {
 		}
 
 		Ok(Self::from_players(active_players, reserve_players))
+	}
+
+	pub fn from_toml(path: PathBuf) -> Result<Self> {
+		let roster_string = fs::read_to_string(path)?;
+		Ok(toml::from_str(&roster_string)?)
 	}
 
 	pub fn from_players(active: Vec<Player>, reserve: Vec<Player>) -> Self {

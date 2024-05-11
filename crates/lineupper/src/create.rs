@@ -34,7 +34,7 @@ pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> R
 	}
 
 	for roster_file in rosterfiles {
-		let roster = Roster::from(&roster_file)?;
+		let roster = Roster::from_rosterfile(&roster_file)?;
 
 		convert_portraits(&roster_file.team, &roster, folder, &output_folder)?;
 		create_team_file(&roster_file.team, roster, &output_folder, FormatType::TOML)?;
