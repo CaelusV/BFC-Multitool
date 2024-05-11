@@ -286,7 +286,7 @@ impl RosterEditor {
 											if let Err(e) = create_team_file(
 												&self.team,
 												RosterRow::to_roster(&self.rows),
-												&save_path,
+												&save_path.parent().unwrap(),
 												format_type,
 											) {
 												Message::error_message(

@@ -56,12 +56,16 @@ pub fn create_team_file(
 		)
 	}
 
+	let mut extension;
 	let file = match format_type {
 		FormatType::TOML => {
 			roster.sort();
+			extension = ".toml";
 			toml::to_string(&roster)?
+
 		}
 		FormatType::MSRF => {
+			extension = ".msrf";
 			Roster::to_msrf_string(team, &roster)
 		}
 	};
@@ -72,7 +76,7 @@ pub fn create_team_file(
 		}
 	}
 
-	fs::write(output_folder.join(slugify(team) + ".toml"), file)?;
+	fs::write(output_folder.join(slugify(team) + extension), file)?;
 	Ok(())
 }
 
