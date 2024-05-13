@@ -29,7 +29,6 @@ impl FormatType {
 
 pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> {
 	let rosterfiles = RosterFile::get_rosterfiles(folder)?;
-	println!("worked");
 	if rosterfiles.is_empty() {
 		return Err(anyhow!("No roster files found."));
 	}

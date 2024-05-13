@@ -348,17 +348,22 @@ impl<'a> PlayoffStage<'a> {
 		}
 
 		// Order the teams after placement, then goal difference, then goals for.
-		// If equal, order based on previous fixture, group stage placement, then decider fixture (extra fixture).
+		// If equal, order based on previous fixture in winners bracket,
+		// group stage placement, then decider fixture (extra fixture).
 		let mut teams_ordered: Vec<TeamPlacement> = self.placements.clone().into_values().collect();
 		teams_ordered.sort_unstable_by(|a, b| {
+			// Placement
 			a.placement
 				.cmp(&b.placement)
+				// Goal difference
 				.then_with(|| {
 					let a_goal_difference = a.team.goals_for as i32 - a.team.goals_against as i32;
 					let b_goal_difference = b.team.goals_for as i32 - b.team.goals_against as i32;
 					b_goal_difference.cmp(&a_goal_difference)
 				})
+				// Goals for
 				.then(b.team.goals_for.cmp(&a.team.goals_for))
+				// Previous fixture in winners bracket.
 				.then_with(|| {
 					if !self.tournament.has_losers {
 						return std::cmp::Ordering::Equal;
@@ -386,6 +391,7 @@ impl<'a> PlayoffStage<'a> {
 						None => std::cmp::Ordering::Equal,
 					}
 				})
+				// Group stage placement
 				.then_with(|| {
 					if self.tournament.brackets.groups.is_none() {
 						return std::cmp::Ordering::Equal;
@@ -394,25 +400,26 @@ impl<'a> PlayoffStage<'a> {
 					let qualifying_teams = self
 						.qualifying_teams
 						.as_ref()
-						.expect("There should always be qualifying teams from group stage.");
+						.expect("Found no qualifying teams from group stage.");
 
 					let a_team = qualifying_teams
 						.iter()
 						.find(|gt| gt.team == a.team.name)
 						.expect(&format!(
-							"Comparing {} & {} group stage, but didn't find {}",
+							"Comparing {} & {} group stage performance, but didn't find {}",
 							a.team.name, b.team.name, a.team.name
 						));
 					let b_team = qualifying_teams
 						.iter()
 						.find(|gt| gt.team == b.team.name)
 						.expect(&format!(
-							"Comparing {} & {} group stage, but didn't find {}",
+							"Comparing {} & {} group stage performance, but didn't find {}",
 							b.team.name, a.team.name, b.team.name
 						));
 
 					b_team.cmp(&a_team)
 				})
+				// Decider (extra) game
 				.then_with(|| {
 					a.team
 						.head_to_head
