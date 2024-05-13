@@ -360,12 +360,12 @@ impl<'a> PlayoffStage<'a> {
 					a.team
 						.head_to_head
 						.expect(&format!(
-							"Can't rank {} ({}): missing head_to_head value",
-							a.team.name, self.tournament.tournament_name
+							"Can't rank {} ({}): missing head_to_head value with {}",
+							a.team.name, self.tournament.tournament_name, b.team.name
 						))
 						.cmp(&b.team.head_to_head.expect(&format!(
-							"Can't rank {} ({}): missing head_to_head value",
-							b.team.name, self.tournament.tournament_name
+							"Can't rank {} ({}): missing head_to_head value with {}",
+							b.team.name, self.tournament.tournament_name, a.team.name
 						)))
 				})
 		});

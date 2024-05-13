@@ -56,7 +56,7 @@ pub fn create_team_file(
 		)
 	}
 
-	let mut extension;
+	let extension;
 	let file = match format_type {
 		FormatType::TOML => {
 			roster.sort();

@@ -256,12 +256,17 @@ pub enum TeamName {
 	BoneZone,
 	#[serde(rename = "Cartoons FC")]
 	CartoonsFC,
+	Cursed,
 	Disney,
+	#[serde(rename = "Fink Ployd")]
+	FinkPloyd,
 	Gambit,
 	#[serde(rename = "HmX Gaming")]
 	HmXGaming,
 	Moai,
 	Nintendont,
+	#[serde(rename = "The Chairs")]
+	TheChairs,
 	#[serde(rename = "The Dump")]
 	TheDump,
 	Vidya,
@@ -276,11 +281,14 @@ impl fmt::Display for TeamName {
 			TeamName::BigFunky => "Big Funky",
 			TeamName::BoneZone => "Bone Zone",
 			TeamName::CartoonsFC => "Cartoons FC",
+			TeamName::Cursed => "Cursed",
 			TeamName::Disney => "Disney",
+			TeamName::FinkPloyd => "FinkPloyd",
 			TeamName::Gambit => "Gambit",
 			TeamName::HmXGaming => "HmX Gaming",
 			TeamName::Moai => "Moai",
 			TeamName::Nintendont => "Nintendont",
+			TeamName::TheChairs => "The Chairs",
 			TeamName::TheDump => "The Dump",
 			TeamName::Vidya => "Vidya",
 		};
