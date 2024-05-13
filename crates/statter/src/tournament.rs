@@ -26,12 +26,12 @@ pub enum GroupID {
 	D,
 }
 
-struct GroupTeams<'a> {
-	teams: Vec<&'a GroupTeam>,
+struct GroupTeams {
+	teams: Vec<GroupTeam>,
 }
 
-impl<'a> GroupTeams<'a> {
-	fn from(teams: Vec<&'a GroupTeam>) -> Self {
+impl GroupTeams {
+	fn from(teams: Vec<GroupTeam>) -> Self {
 		GroupTeams { teams }
 	}
 
@@ -39,7 +39,7 @@ impl<'a> GroupTeams<'a> {
 		let mut has_failed_to_order_team = false;
 		let mut failed_team1 = TeamName::Unknown;
 		let mut failed_team2 = TeamName::Unknown;
-		self.teams.sort_unstable_by(|&b, &a| {
+		self.teams.sort_unstable_by(|b, a| {
 			let order = a
 				.points
 				.cmp(&b.points)
@@ -69,21 +69,21 @@ impl<'a> GroupTeams<'a> {
 	}
 }
 
-impl<'a> Deref for GroupTeams<'a> {
-	type Target = Vec<&'a GroupTeam>;
+impl Deref for GroupTeams {
+	type Target = Vec<GroupTeam>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.teams
 	}
 }
 
-impl<'a> DerefMut for GroupTeams<'a> {
+impl DerefMut for GroupTeams {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.teams
 	}
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 struct GroupTeam {
 	group: GroupID,
 	team: TeamName,
@@ -122,6 +122,25 @@ impl GroupTeam {
 		self.points += Self::points_from_fixture_result(goals_for, goals_against);
 		self.goals_for += goals_for;
 		self.goals_against += goals_against;
+	}
+}
+
+impl Ord for GroupTeam {
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.points
+			.cmp(&other.points)
+			.then({
+				let goal_diff_self = self.goals_for as i16 - self.goals_against as i16;
+				let goal_diff_other = other.goals_for as i16 - self.goals_against as i16;
+				goal_diff_self.cmp(&goal_diff_other)
+			})
+			.then(self.goals_for.cmp(&other.goals_for))
+	}
+}
+
+impl PartialOrd for GroupTeam {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
 	}
 }
 
@@ -202,16 +221,22 @@ impl<'a> GroupStage<'a> {
 			let mut group_teams = GroupTeams::from(
 				team_scores
 					.values()
-					.filter(|&gt| &gt.group == group)
+					.filter(|gt| &gt.group == group)
+					.map(|gt| gt.clone())
 					.collect(),
 			);
 
 			group_teams.sort_teams(&self.tournament.tournament_name)?;
 
 			let not_qualified = group_teams.split_off(qualifying_teams_per_group);
-			wildcard_candidates.push(*not_qualified.first().ok_or(anyhow!(
-				"Tried to add a wildcard candidate that didn't exist"
-			))?);
+			wildcard_candidates.push(
+				not_qualified
+					.first()
+					.ok_or(anyhow!(
+						"Tried to add a wildcard candidate that didn't exist"
+					))?
+					.clone(),
+			);
 			qualifying_teams.append(&mut group_teams);
 		}
 
@@ -225,15 +250,16 @@ impl<'a> GroupStage<'a> {
 			team_scores
 				.values()
 				.filter(|gt| !qualifying_teams.contains(gt))
+				.map(|gt| gt.clone())
 				.collect(),
 		);
 		eliminated_teams.sort_teams(&self.tournament.tournament_name)?;
-		for (i, &gt) in eliminated_teams.iter().rev().enumerate() {
+		for (i, gt) in eliminated_teams.iter().rev().enumerate() {
 			let placement = team_count - i;
 			self.placements.set_placement(gt.team, placement as u8);
 		}
 
-		Ok(PlayoffStage::from_groups(self))
+		Ok(PlayoffStage::from_groups(self, qualifying_teams))
 	}
 }
 
@@ -263,6 +289,8 @@ impl Participation {
 struct PlayoffStage<'a> {
 	placements: TournamentPlacements,
 	tournament: &'a Tournament,
+	// Only if groups are used.
+	qualifying_teams: Option<GroupTeams>,
 }
 
 impl<'a> PlayoffStage<'a> {
@@ -270,13 +298,15 @@ impl<'a> PlayoffStage<'a> {
 		Self {
 			placements: TournamentPlacements::new(),
 			tournament,
+			qualifying_teams: None,
 		}
 	}
 
-	fn from_groups(groups: GroupStage<'a>) -> Self {
+	fn from_groups(groups: GroupStage<'a>, qualifying_teams: GroupTeams) -> Self {
 		Self {
 			placements: groups.placements,
 			tournament: groups.tournament,
+			qualifying_teams: Some(qualifying_teams),
 		}
 	}
 
@@ -318,7 +348,7 @@ impl<'a> PlayoffStage<'a> {
 		}
 
 		// Order the teams after placement, then goal difference, then goals for.
-		// If equal, order based on previous fixture, then decider fixture (extra fixture).
+		// If equal, order based on previous fixture, group stage placement, then decider fixture (extra fixture).
 		let mut teams_ordered: Vec<TeamPlacement> = self.placements.clone().into_values().collect();
 		teams_ordered.sort_unstable_by(|a, b| {
 			a.placement
@@ -355,6 +385,33 @@ impl<'a> PlayoffStage<'a> {
 						},
 						None => std::cmp::Ordering::Equal,
 					}
+				})
+				.then_with(|| {
+					if self.tournament.brackets.groups.is_none() {
+						return std::cmp::Ordering::Equal;
+					}
+
+					let qualifying_teams = self
+						.qualifying_teams
+						.as_ref()
+						.expect("There should always be qualifying teams from group stage.");
+
+					let a_team = qualifying_teams
+						.iter()
+						.find(|gt| gt.team == a.team.name)
+						.expect(&format!(
+							"Comparing {} & {} group stage, but didn't find {}",
+							a.team.name, b.team.name, a.team.name
+						));
+					let b_team = qualifying_teams
+						.iter()
+						.find(|gt| gt.team == b.team.name)
+						.expect(&format!(
+							"Comparing {} & {} group stage, but didn't find {}",
+							b.team.name, a.team.name, b.team.name
+						));
+
+					b_team.cmp(&a_team)
 				})
 				.then_with(|| {
 					a.team

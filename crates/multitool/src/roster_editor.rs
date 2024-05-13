@@ -222,7 +222,8 @@ impl RosterEditor {
 												Ok(roster_file) => {
 													match Roster::from_rosterfile(&roster_file) {
 														Ok(roster) => {
-															let rows = RosterRow::from_roster(roster);
+															let rows =
+																RosterRow::from_roster(roster);
 															self.rows = rows;
 															self.team = roster_file.team;
 														}
@@ -240,28 +241,24 @@ impl RosterEditor {
 												}
 											}
 										}
-										Some(FormatType::TOML) => {
-											match Roster::from_toml(path) {
-												Ok(roster) => {
-													let rows = RosterRow::from_roster(roster);
-													self.rows = rows;
-													self.team = "".to_string();
-												}
-												Err(roster_error) => {
-													Message::error_message(
-														"Import Error",
-														&roster_error.to_string(),
-													);
-												}
+										Some(FormatType::TOML) => match Roster::from_toml(path) {
+											Ok(roster) => {
+												let rows = RosterRow::from_roster(roster);
+												self.rows = rows;
+												self.team = "".to_string();
 											}
-										}
+											Err(roster_error) => {
+												Message::error_message(
+													"Import Error",
+													&roster_error.to_string(),
+												);
+											}
+										},
 										None => Message::error_message(
 											"Import Error",
 											"Failed to parse file extension",
 										),
 									}
-
-
 								}
 							}
 						});

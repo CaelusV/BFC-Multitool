@@ -62,7 +62,6 @@ pub fn create_team_file(
 			roster.sort();
 			extension = ".toml";
 			toml::to_string(&roster)?
-
 		}
 		FormatType::MSRF => {
 			extension = ".msrf";

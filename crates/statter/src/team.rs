@@ -283,7 +283,7 @@ impl fmt::Display for TeamName {
 			TeamName::CartoonsFC => "Cartoons FC",
 			TeamName::Cursed => "Cursed",
 			TeamName::Disney => "Disney",
-			TeamName::FinkPloyd => "FinkPloyd",
+			TeamName::FinkPloyd => "Fink Ployd",
 			TeamName::Gambit => "Gambit",
 			TeamName::HmXGaming => "HmX Gaming",
 			TeamName::Moai => "Moai",

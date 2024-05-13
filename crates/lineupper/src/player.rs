@@ -200,7 +200,19 @@ pub struct Player {
 
 impl Player {}
 
-#[derive(Serialize, Deserialize, VariantArray, Default, Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(
+	Serialize,
+	Deserialize,
+	VariantArray,
+	Default,
+	Debug,
+	Clone,
+	Copy,
+	Ord,
+	PartialOrd,
+	Eq,
+	PartialEq,
+)]
 pub enum Position {
 	GK,
 	LB,
