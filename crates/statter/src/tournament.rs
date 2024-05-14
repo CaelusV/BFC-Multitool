@@ -318,7 +318,15 @@ impl<'a> PlayoffStage<'a> {
 				.values()
 				.filter(|&tp| tp.placement.is_none())
 				.count();
-			assert_eq!(unranked_teams, self.tournament.playoff_teams as usize);
+
+			if unranked_teams != self.tournament.playoff_teams as usize {
+				return Err(anyhow!(
+					"{}: Expected {} playoff teams from group stage, found {}.",
+					self.tournament.tournament_name,
+					self.tournament.playoff_teams,
+					unranked_teams
+				));
+			}
 		}
 
 		// Run the brackets.
@@ -329,11 +337,15 @@ impl<'a> PlayoffStage<'a> {
 		}
 
 		// Make sure the correct number of teams actually played.
-		if self.tournament.brackets.groups.is_none() {
-			assert_eq!(
-				self.placements.len(),
-				self.tournament.playoff_teams as usize
-			);
+		if self.tournament.brackets.groups.is_none()
+			&& self.placements.len() != self.tournament.playoff_teams as usize
+		{
+			return Err(anyhow!(
+				"{}: Expected {} playoff teams, found {}.",
+				self.tournament.tournament_name,
+				self.tournament.playoff_teams,
+				self.placements.len()
+			));
 		}
 
 		// Fill in Head To Head between equal teams.
@@ -351,6 +363,7 @@ impl<'a> PlayoffStage<'a> {
 		// If equal, order based on previous fixture in winners bracket,
 		// group stage placement, then decider fixture (extra fixture).
 		let mut teams_ordered: Vec<TeamPlacement> = self.placements.clone().into_values().collect();
+		let mut sort_error = Ok(());
 		teams_ordered.sort_unstable_by(|a, b| {
 			// Placement
 			a.placement
@@ -386,7 +399,14 @@ impl<'a> PlayoffStage<'a> {
 						Some(&g) => match g.winner() {
 							Ok(Some(winner)) if winner == a.team.name => std::cmp::Ordering::Less,
 							Ok(_) => std::cmp::Ordering::Greater,
-							Err(_) => panic!("This should never fail: SORTING_ERROR"),
+							Err(_) => {
+								if sort_error.is_ok() {
+									sort_error = Err(anyhow!(
+										"This should never fail: SORTING_PREV_FIXTURE_ERROR"
+									));
+								}
+								std::cmp::Ordering::Equal
+							}
 						},
 						None => std::cmp::Ordering::Equal,
 					}
@@ -397,42 +417,50 @@ impl<'a> PlayoffStage<'a> {
 						return std::cmp::Ordering::Equal;
 					}
 
-					let qualifying_teams = self
-						.qualifying_teams
-						.as_ref()
-						.expect("Found no qualifying teams from group stage.");
+					if let Some(qualifying_teams) = self.qualifying_teams.as_ref() {
+						let a_team = qualifying_teams.iter().find(|gt| gt.team == a.team.name);
+						let b_team = qualifying_teams.iter().find(|gt| gt.team == b.team.name);
 
-					let a_team = qualifying_teams
-						.iter()
-						.find(|gt| gt.team == a.team.name)
-						.expect(&format!(
-							"Comparing {} & {} group stage performance, but didn't find {}",
-							a.team.name, b.team.name, a.team.name
-						));
-					let b_team = qualifying_teams
-						.iter()
-						.find(|gt| gt.team == b.team.name)
-						.expect(&format!(
-							"Comparing {} & {} group stage performance, but didn't find {}",
-							b.team.name, a.team.name, b.team.name
-						));
+						if sort_error.is_ok() && (a_team.is_none() || b_team.is_none()) {
+							sort_error = Err(anyhow!(
+								"{}: Comparing {} & {} group stage performance, but missing at least one team.",
+								self.tournament.tournament_name,
+								a.team.name,
+								b.team.name
+							));
+						}
 
-					b_team.cmp(&a_team)
+						b_team.cmp(&a_team)
+					} else {
+						if sort_error.is_ok() {
+							sort_error = Err(anyhow!(
+								"Found no qualifying teams from group stage when sorting."
+							));
+						}
+						std::cmp::Ordering::Equal
+					}
 				})
 				// Decider (extra) game
 				.then_with(|| {
-					a.team
-						.head_to_head
-						.expect(&format!(
-							"Can't rank {} ({}): missing head_to_head value with {}",
-							a.team.name, self.tournament.tournament_name, b.team.name
-						))
-						.cmp(&b.team.head_to_head.expect(&format!(
-							"Can't rank {} ({}): missing head_to_head value with {}",
-							b.team.name, self.tournament.tournament_name, a.team.name
-						)))
+					let a_h2h = a.team.head_to_head;
+					let b_h2h = b.team.head_to_head;
+
+					if let (Some(a), Some(b)) = (a_h2h, b_h2h) {
+						a.cmp(&b)
+					} else {
+						if sort_error.is_ok() {
+							sort_error = Err(anyhow!(
+								"Can't rank {} & {} ({}): Missing one or both head_to_head values",
+								a.team.name,
+								b.team.name,
+								self.tournament.tournament_name
+							));
+						}
+						std::cmp::Ordering::Equal
+					}
 				})
 		});
+		sort_error?;
 
 		// Give the correct rank numbers from 1..n.
 		for (i, tp) in teams_ordered.iter_mut().enumerate() {
@@ -443,23 +471,17 @@ impl<'a> PlayoffStage<'a> {
 	}
 
 	fn grand_final(&mut self) -> Result<()> {
-		let fixtures = self.tournament.grand_final.as_ref().unwrap();
+		let gf_fixtures = self.tournament.grand_final.as_ref().unwrap();
 
-		assert_ne!(
-			fixtures.len(),
-			0,
-			"{}: Expected 1 or 2 grand final fixtures since losers bracket is active, found none.",
-			self.tournament.tournament_name
-		);
+		if gf_fixtures.len() == 0 || gf_fixtures.len() > 2 {
+			return Err(anyhow!(
+				"{}: Expected 1 or 2 grand final fixtures, found {}",
+				self.tournament.tournament_name,
+				gf_fixtures.len()
+			));
+		}
 
-		assert!(
-			fixtures.len() <= 2,
-			"{}: Expected 1 or 2 grand final fixtures, found {}.",
-			self.tournament.tournament_name,
-			fixtures.len()
-		);
-
-		let first_fixture = fixtures.first().unwrap();
+		let first_fixture = gf_fixtures.first().unwrap();
 		let team1 = self.placements.get(&first_fixture.team1).unwrap();
 		let team2 = self.placements.get(&first_fixture.team2).unwrap();
 
@@ -472,21 +494,23 @@ impl<'a> PlayoffStage<'a> {
 			_ => team2.team.name,
 		};
 
-		if let Ok(Some(first_fixture_winner)) = first_fixture.winner() {
-			assert!(
-                !(fixtures.len() == 1 && first_fixture_winner == team_from_losers),
-                "{}: {first_fixture_winner} won grand final in 1 fixture, despite coming from losers bracket.",
-                self.tournament.tournament_name
-            );
+		if let Some(first_fixture_winner) = first_fixture.winner()? {
+			if gf_fixtures.len() == 1 && first_fixture_winner == team_from_losers {
+				return Err(anyhow!(
+					"{}: {first_fixture_winner} won grand final in 1 fixture, despite coming from losers bracket.",
+					self.tournament.tournament_name
+				));
+			}
 
-			assert!(
-                !(fixtures.len() == 2 && first_fixture_winner != team_from_losers),
-                "{}: {first_fixture_winner} came from winners bracket and won the grand final in the first fixture, yet a second fixture was found.",
-                self.tournament.tournament_name
-            );
+			if gf_fixtures.len() == 2 && first_fixture_winner != team_from_losers {
+				return Err(anyhow!(
+					"{}: {first_fixture_winner} came from winners bracket and won the grand final in the first fixture, yet a second fixture was found.",
+					self.tournament.tournament_name
+				));
+			}
 		}
 
-		for fixture in fixtures {
+		for fixture in gf_fixtures {
 			match self
 				.placements
 				.update_teams(fixture, false, &self.tournament.tournament_name)
@@ -499,8 +523,16 @@ impl<'a> PlayoffStage<'a> {
 					))
 				}
 			};
-			self.placements.set_placement(fixture.loser()?.unwrap(), 2);
-			self.placements.set_placement(fixture.winner()?.unwrap(), 1);
+
+			if let (Some(winner), Some(loser)) = (fixture.winner()?, fixture.loser()?) {
+				self.placements.set_placement(loser, 2);
+				self.placements.set_placement(winner, 1);
+			} else {
+				return Err(anyhow!(
+					"{}: 1 or more Grand final fixtures were drawn.",
+					self.tournament.tournament_name
+				));
+			}
 		}
 		Ok(())
 	}
@@ -508,11 +540,13 @@ impl<'a> PlayoffStage<'a> {
 	fn losers_bracket(&mut self) -> Result<()> {
 		let theoretical_fixtures_played = (self.tournament.playoff_teams - 2) as usize;
 		let actual_fixtures_played = self.tournament.brackets.losers.as_ref().unwrap().len();
-		assert_eq!(
-            theoretical_fixtures_played, actual_fixtures_played,
-            "{}: Expected {theoretical_fixtures_played} losers bracket fixtures, found {actual_fixtures_played}. NOTICE: There are {} teams playing.",
-            self.tournament.tournament_name, self.tournament.playoff_teams
-        );
+
+		if theoretical_fixtures_played != actual_fixtures_played {
+			return Err(anyhow!(
+				"{}: Expected {theoretical_fixtures_played} losers bracket fixtures, found {actual_fixtures_played}. NOTICE: There are {} teams playing.",
+				self.tournament.tournament_name, self.tournament.playoff_teams
+			));
+		}
 
 		// Brute force amount of stages left with fictional teams. Based on the fact
 		// that the amount of losers stages increases from 0 by +1 at stage 3, 4, 6,
@@ -582,11 +616,13 @@ impl<'a> PlayoffStage<'a> {
 	fn winners_bracket(&mut self) -> Result<()> {
 		let theoretical_fixtures_in_bracket = (self.tournament.playoff_teams - 1) as usize;
 		let actual_fixtures_in_bracket = self.tournament.brackets.winners.len();
-		assert_eq!(
-            theoretical_fixtures_in_bracket, actual_fixtures_in_bracket,
-            "{}: Expected {theoretical_fixtures_in_bracket} winners bracket fixtures, found {actual_fixtures_in_bracket}. NOTICE: There are {} teams playing.",
-            self.tournament.tournament_name, self.tournament.playoff_teams
-        );
+
+		if theoretical_fixtures_in_bracket != actual_fixtures_in_bracket {
+			return Err(anyhow!(
+				"{}: Expected {theoretical_fixtures_in_bracket} winners bracket fixtures, found {actual_fixtures_in_bracket}. NOTICE: There are {} teams playing.",
+				self.tournament.tournament_name, self.tournament.playoff_teams
+			));
+		}
 
 		let mut stages_left = f32::ceil(f32::log2(self.tournament.playoff_teams as f32)) as u8;
 		let mut teams_left = self.tournament.playoff_teams;
@@ -775,11 +811,9 @@ impl TournamentPlacements {
 				(0, 0, 1)
 			}
 			None => {
-				assert!(
-					is_groups,
-					"{} (Playoffs): {team_name} vs {opponent_name} ended in draw",
-					tournament_name
-				);
+				if !is_groups {
+					return Err(anyhow!("{tournament_name} (Playoffs): {team_name} vs {opponent_name} ended in draw"));
+				}
 				team_entry.team.draws += 1;
 				(0, 1, 0)
 			}

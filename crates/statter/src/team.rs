@@ -102,7 +102,10 @@ impl Team {
 	}
 
 	pub fn add(&mut self, other: &mut Self) -> Result<()> {
-		assert_eq!(self.name, other.name);
+		if self.name != other.name {
+			return Err(anyhow!("DEV_ERR: Can't add stats from a different team."));
+		}
+
 		self.goals_against += other.goals_against;
 		self.goals_for += other.goals_for;
 		self.penalties_played += other.penalties_played;
