@@ -261,6 +261,8 @@ pub enum TeamName {
 	CartoonsFC,
 	Cursed,
 	Disney,
+	#[serde(rename = "FC Fine Dining")]
+	FCFineDining,
 	#[serde(rename = "Fink Ployd")]
 	FinkPloyd,
 	Gambit,
@@ -286,6 +288,7 @@ impl fmt::Display for TeamName {
 			TeamName::CartoonsFC => "Cartoons FC",
 			TeamName::Cursed => "Cursed",
 			TeamName::Disney => "Disney",
+			TeamName::FCFineDining => "FC Fine Dining",
 			TeamName::FinkPloyd => "Fink Ployd",
 			TeamName::Gambit => "Gambit",
 			TeamName::HmXGaming => "HmX Gaming",
