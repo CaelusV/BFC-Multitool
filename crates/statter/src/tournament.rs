@@ -40,16 +40,7 @@ impl GroupTeams {
 		let mut failed_team1 = TeamName::Unknown;
 		let mut failed_team2 = TeamName::Unknown;
 		self.teams.sort_unstable_by(|b, a| {
-			let order = a
-				.points
-				.cmp(&b.points)
-				.then({
-					let goal_diff_a = a.goals_for as i16 - a.goals_against as i16;
-					let goal_diff_b = b.goals_for as i16 - b.goals_against as i16;
-					goal_diff_a.cmp(&goal_diff_b)
-				})
-				.then(a.goals_for.cmp(&b.goals_for));
-
+			let order = a.cmp(&b);
 			if order == Ordering::Equal {
 				has_failed_to_order_team = true;
 				failed_team1 = a.team;
@@ -57,9 +48,10 @@ impl GroupTeams {
 			}
 			order
 		});
+
 		if has_failed_to_order_team {
 			return Err(anyhow!(
-				"{} (Groups): Couldn't resolve ordering between {} and {}.",
+				"{} (Groups): Couldn't resolve ordering between {} and {}, missing/incorrect head to head.",
 				tournament_name,
 				failed_team1,
 				failed_team2
@@ -90,6 +82,7 @@ struct GroupTeam {
 	points: u8,
 	goals_for: u8,
 	goals_against: u8,
+	head_to_head: Option<u8>,
 }
 
 impl GroupTeam {
@@ -105,6 +98,7 @@ impl GroupTeam {
 			points: Self::points_from_fixture_result(goals_for, goals_against),
 			goals_for,
 			goals_against,
+			head_to_head: None,
 		}
 	}
 
@@ -131,10 +125,18 @@ impl Ord for GroupTeam {
 			.cmp(&other.points)
 			.then({
 				let goal_diff_self = self.goals_for as i16 - self.goals_against as i16;
-				let goal_diff_other = other.goals_for as i16 - self.goals_against as i16;
+				let goal_diff_other = other.goals_for as i16 - other.goals_against as i16;
 				goal_diff_self.cmp(&goal_diff_other)
 			})
 			.then(self.goals_for.cmp(&other.goals_for))
+			// Decider (extra) game
+			.then_with(|| {
+				if let (Some(a), Some(b)) = (self.head_to_head, other.head_to_head) {
+					a.cmp(&b)
+				} else {
+					std::cmp::Ordering::Equal
+				}
+			})
 	}
 }
 
@@ -204,6 +206,16 @@ impl<'a> GroupStage<'a> {
 				));
 		}
 
+		// Fill in Head To Head between equal teams.
+		if let Some(h2h) = &self.tournament.head_to_head {
+			for h2h_decider in h2h {
+				let team_score = team_scores
+					.get_mut(&h2h_decider.team)
+					.expect(&format!("{:?}", h2h_decider.team));
+				team_score.head_to_head = Some(h2h_decider.decider_points)
+			}
+		}
+
 		let team_count = team_scores.len();
 		let qualifying_teams_per_group = self.tournament.playoff_teams as usize / groups_seen.len();
 		let wildcards_count =
@@ -266,7 +278,7 @@ impl<'a> GroupStage<'a> {
 #[derive(Deserialize)]
 pub struct HeadToHead {
 	pub team: TeamName,
-	pub placement: u8,
+	pub decider_points: u8,
 }
 
 #[derive(Clone, Serialize)]
@@ -350,12 +362,12 @@ impl<'a> PlayoffStage<'a> {
 
 		// Fill in Head To Head between equal teams.
 		if let Some(h2h) = &self.tournament.head_to_head {
-			for h2h_placement in h2h {
+			for h2h_decider in h2h {
 				let tp = self
 					.placements
-					.get_mut(&h2h_placement.team)
-					.expect(&format!("{:?}", h2h_placement.team));
-				tp.team.head_to_head = Some(h2h_placement.placement);
+					.get_mut(&h2h_decider.team)
+					.expect(&format!("{:?}", h2h_decider.team));
+				tp.head_to_head = Some(h2h_decider.decider_points);
 			}
 		}
 
@@ -442,8 +454,8 @@ impl<'a> PlayoffStage<'a> {
 				})
 				// Decider (extra) game
 				.then_with(|| {
-					let a_h2h = a.team.head_to_head;
-					let b_h2h = b.team.head_to_head;
+					let a_h2h = a.head_to_head;
+					let b_h2h = b.head_to_head;
 
 					if let (Some(a), Some(b)) = (a_h2h, b_h2h) {
 						a.cmp(&b)

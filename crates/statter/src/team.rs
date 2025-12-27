@@ -62,6 +62,7 @@ impl MatchupHistory {
 	}
 }
 
+// Used both as Team stats for tournament and Team stats over time.
 #[derive(Clone, Serialize)]
 pub struct Team {
 	pub name: TeamName,
@@ -78,7 +79,6 @@ pub struct Team {
 	greatest_loss: Option<GreatestFixture>,
 	pub matchups: Option<Vec<MatchupHistory>>,
 	pub participations: Option<Vec<Participation>>,
-	pub head_to_head: Option<u8>,
 }
 
 impl Team {
@@ -97,7 +97,6 @@ impl Team {
 			greatest_loss: None,
 			matchups: None,
 			participations: None,
-			head_to_head: None,
 		}
 	}
 
@@ -306,10 +305,16 @@ impl fmt::Display for TeamName {
 pub struct TeamPlacement {
 	pub team: Team,
 	pub placement: Option<u8>,
+	#[serde(skip_serializing)]
+	pub head_to_head: Option<u8>,
 }
 
 impl TeamPlacement {
 	pub fn from(placement: Option<u8>, team: Team) -> Self {
-		TeamPlacement { placement, team }
+		TeamPlacement {
+			placement,
+			team,
+			head_to_head: None,
+		}
 	}
 }

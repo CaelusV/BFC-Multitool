@@ -61,13 +61,14 @@ pub fn run_tournaments(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> 
 	all_tournament_results.sort_unstable_by_key(|k| k.date);
 
 	for tournament_results in &mut all_tournament_results {
+		// Don't clutter tournament results with historic team data.
 		tournament_results
 			.team_placements
 			.iter_mut()
 			.for_each(|tp| {
 				tp.team.matchups = None;
 				tp.team.participations = None;
-				tp.team.head_to_head = None;
+				// tp.head_to_head = None; // This shouldn't be necessary anymore.
 				tp.team.reset_greatest();
 			});
 		let tournament_results_toml = toml::to_string(&tournament_results)?;
