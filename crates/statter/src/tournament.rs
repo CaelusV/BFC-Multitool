@@ -375,6 +375,9 @@ impl<'a> PlayoffStage<'a> {
 		// If equal, order based on previous fixture in winners bracket,
 		// group stage placement, then decider fixture (extra fixture).
 		let mut teams_ordered: Vec<TeamPlacement> = self.placements.clone().into_values().collect();
+		for x in &teams_ordered {
+			println!("{}: {:?}", x.team.name, x.placement)
+		}
 		let mut sort_error = Ok(());
 		teams_ordered.sort_unstable_by(|a, b| {
 			// Placement
@@ -671,6 +674,16 @@ impl<'a> PlayoffStage<'a> {
 				fixtures_in_stage = teams_left / 2;
 			}
 		}
+
+		// Without a grand final we need to fix the winner of the last winners game.
+		if self.tournament.grand_final.is_none() {
+			let last_game = self.tournament.brackets.winners.last().unwrap();
+			if let (Some(winner), Some(loser)) = (last_game.winner()?, last_game.loser()?) {
+				self.placements.set_placement(winner, 1);
+				self.placements.set_placement(loser, 2);
+			}
+		}
+
 		Ok(())
 	}
 }
