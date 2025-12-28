@@ -721,9 +721,9 @@ pub struct TournamentResult {
 
 impl TournamentResult {
 	// FIXME: const should be under rankings.
-	const MAX_POINT_IDX: usize = 12;
+	const MAX_POINT_IDX: usize = 16;
 	const POINTS: [u32; Self::MAX_POINT_IDX + 1] = [
-		1500, 1100, 900, 750, 600, 500, 400, 300, 200, 100, 50, 25, 0,
+		1500, 1100, 900, 750, 600, 500, 400, 300, 200, 100, 50, 25, 12, 6, 3, 1, 0,
 	];
 
 	pub fn from(team_placements: Vec<TeamPlacement>, tourny: Tournament) -> Self {
