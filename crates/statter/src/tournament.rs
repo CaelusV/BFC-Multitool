@@ -375,9 +375,6 @@ impl<'a> PlayoffStage<'a> {
 		// If equal, order based on previous fixture in winners bracket,
 		// group stage placement, then decider fixture (extra fixture).
 		let mut teams_ordered: Vec<TeamPlacement> = self.placements.clone().into_values().collect();
-		for x in &teams_ordered {
-			println!("{}: {:?}", x.team.name, x.placement)
-		}
 		let mut sort_error = Ok(());
 		teams_ordered.sort_unstable_by(|a, b| {
 			// Placement
