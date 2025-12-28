@@ -14,9 +14,10 @@ use multitool::{
 
 fn main() -> Result<(), eframe::Error> {
 	let icon = from_png_bytes(include_bytes!("../icon.png")).expect("Couldn't find icon.png");
+	let version = env!("CARGO_PKG_VERSION");
 
 	let viewport = egui::ViewportBuilder::default()
-		.with_title("BFC Multitool by CaelusV")
+		.with_title(format!("BFC Multitool {version} by CaelusV"))
 		.with_icon(icon)
 		.with_resizable(false)
 		.with_maximize_button(false)
