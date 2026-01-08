@@ -84,15 +84,8 @@ pub fn run_tournaments(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> 
 		fs::write(tournament_results_path, tournament_results_toml)?;
 	}
 
-	// Generate SeasonRankings and sort them.
-	let mut seasons = Seasons::from(all_tournament_results);
-	seasons
-		.seasons
-		.sort_by(|a, b| a.season_num.cmp(&b.season_num));
-	for s in &mut seasons.seasons {
-		// Sort Tournaments in Season from first to last.
-		s.tournaments.sort_unstable();
-	}
+	// Generate SeasonRankings. NOTE: TournamentResults are already sorted by date.
+	let seasons = Seasons::from(all_tournament_results);
 	let rankings_toml = toml::to_string(&seasons)?;
 	let rankings_path = output_folder.join("rankings.toml");
 	fs::write(rankings_path, rankings_toml)?;
