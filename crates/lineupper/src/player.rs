@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use strum_macros::VariantArray;
+use strum_macros::{Display, EnumString, VariantArray};
 use thiserror::Error;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
@@ -74,7 +74,8 @@ impl PlayerState {
 				return Err(PlayerError::InvalidID(s).into());
 			};
 
-		let position = Position::from(parts[2].trim())?;
+		let position = Position::try_from(parts[2].trim())
+			.map_err(|_| anyhow!("'{}' is not a player position.", parts[2].trim()))?;
 
 		let mut name = parts[1].to_string();
 
@@ -206,6 +207,8 @@ impl Player {}
 	VariantArray,
 	Default,
 	Debug,
+	Display,
+	EnumString,
 	Clone,
 	Copy,
 	Ord,
@@ -228,31 +231,4 @@ pub enum Position {
 	RWF,
 	SS,
 	CF,
-}
-
-impl Position {
-	fn from(str: &str) -> Result<Self> {
-		Ok(match str {
-			"GK" => Self::GK,
-			"LB" => Self::LB,
-			"CB" => Self::CB,
-			"RB" => Self::RB,
-			"DMF" => Self::DMF,
-			"LMF" => Self::LMF,
-			"CMF" => Self::CMF,
-			"RMF" => Self::RMF,
-			"AMF" => Self::AMF,
-			"LWF" => Self::LWF,
-			"RWF" => Self::RWF,
-			"SS" => Self::SS,
-			"CF" => Self::CF,
-			_ => return Err(anyhow!("'{str}' is not a player position.")),
-		})
-	}
-}
-
-impl std::fmt::Display for Position {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{self:?}")
-	}
 }
