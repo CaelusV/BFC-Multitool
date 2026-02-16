@@ -1,5 +1,3 @@
-use std::fmt;
-
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
@@ -246,59 +244,49 @@ impl Team {
 	}
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, strum_macros::Display,
+)]
 pub enum TeamName {
 	Unknown,
 	#[serde(rename = "Alpha Space Bros")]
+	#[strum(to_string = "Alpha Space Bros")]
 	AlphaSpaceBros,
 	Autoism,
 	#[serde(rename = "Big Funky")]
+	#[strum(to_string = "Big Funky")]
 	BigFunky,
 	#[serde(rename = "Bone Zone")]
+	#[strum(to_string = "Bone Zone")]
 	BoneZone,
 	#[serde(rename = "Cartoons FC")]
+	#[strum(to_string = "Cartoons FC")]
 	CartoonsFC,
 	Cursed,
 	Disney,
 	#[serde(rename = "FC Fine Dining")]
+	#[strum(to_string = "FC Fine Dining")]
 	FCFineDining,
+	#[serde(rename = "FC PC")]
+	#[strum(to_string = "FC PC")]
+	FCPC,
 	#[serde(rename = "Fink Ployd")]
+	#[strum(to_string = "Fink Ployd")]
 	FinkPloyd,
 	Gambit,
 	#[serde(rename = "HmX Gaming")]
+	#[strum(to_string = "HmX Gaming")]
 	HmXGaming,
+	Legoland,
 	Moai,
 	Nintendont,
 	#[serde(rename = "The Chairs")]
+	#[strum(to_string = "The Chairs")]
 	TheChairs,
 	#[serde(rename = "The Dump")]
+	#[strum(to_string = "The Dump")]
 	TheDump,
 	Vidya,
-}
-
-impl fmt::Display for TeamName {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let s = match self {
-			TeamName::Unknown => "Unknown",
-			TeamName::AlphaSpaceBros => "Alpha Space Bros",
-			TeamName::Autoism => "Autoism",
-			TeamName::BigFunky => "Big Funky",
-			TeamName::BoneZone => "Bone Zone",
-			TeamName::CartoonsFC => "Cartoons FC",
-			TeamName::Cursed => "Cursed",
-			TeamName::Disney => "Disney",
-			TeamName::FCFineDining => "FC Fine Dining",
-			TeamName::FinkPloyd => "Fink Ployd",
-			TeamName::Gambit => "Gambit",
-			TeamName::HmXGaming => "HmX Gaming",
-			TeamName::Moai => "Moai",
-			TeamName::Nintendont => "Nintendont",
-			TeamName::TheChairs => "The Chairs",
-			TeamName::TheDump => "The Dump",
-			TeamName::Vidya => "Vidya",
-		};
-		write!(f, "{s}")
-	}
 }
 
 #[derive(Clone, Serialize)]
