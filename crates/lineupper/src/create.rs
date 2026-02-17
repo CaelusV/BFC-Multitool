@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use image::io::Reader as ImageReader;
+use image::ImageReader;
 
 use crate::{
 	roster::{Roster, RosterFile},

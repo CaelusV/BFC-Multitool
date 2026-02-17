@@ -22,9 +22,10 @@ pub fn setup_custom_fonts(ctx: &Context) {
 
 	let mut fonts = FontDefinitions::empty();
 	for (font_name, font_data) in FONT_FILES {
-		fonts
-			.font_data
-			.insert(font_name.into(), FontData::from_static(font_data));
+		fonts.font_data.insert(
+			font_name.into(),
+			std::sync::Arc::new(FontData::from_static(font_data)),
+		);
 
 		let name_lower = font_name.to_lowercase();
 		match (name_lower.contains("mono"), name_lower.contains("bold")) {

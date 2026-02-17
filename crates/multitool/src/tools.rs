@@ -44,9 +44,9 @@ impl Tools {
 
 	// FIXME: Currently nothing is async, so progress won't be shown. Ironically.
 	fn progress(&mut self, ui: &mut Ui, tool: &ToolItem) {
-		egui::Frame::none()
+		egui::Frame::NONE
 			.fill(Color32::LIGHT_GRAY)
-			.inner_margin(Margin::same(4.0))
+			.inner_margin(Margin::same(4))
 			.show(ui, |ui| {
 				ui.with_layout(
 					Layout::left_to_right(egui::Align::Min)

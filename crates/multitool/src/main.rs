@@ -19,15 +19,13 @@ fn main() -> Result<(), eframe::Error> {
 	let viewport = egui::ViewportBuilder::default()
 		.with_title(format!("BFC Multitool {version} by CaelusV"))
 		.with_icon(icon)
-		.with_resizable(false)
-		.with_maximize_button(false)
-		.with_inner_size(Vec2::new(690.0, 700.0));
+		.with_resizable(true)
+		.with_maximize_button(true)
+		.with_inner_size(Vec2::new(710.0, 700.0));
 
 	let options = eframe::NativeOptions {
 		centered: true,
-		// NOTE: Light theme is broken with popup hack.
-		default_theme: eframe::Theme::Dark,
-		follow_system_theme: false,
+		persist_window: false,
 		renderer: eframe::Renderer::Wgpu,
 		viewport,
 		..Default::default()
@@ -36,7 +34,7 @@ fn main() -> Result<(), eframe::Error> {
 	eframe::run_native(
 		"BFC Multitool",
 		options,
-		Box::new(|cc| Box::new(MultitoolApp::new(cc))),
+		Box::new(|cc| Ok(Box::new(MultitoolApp::new(cc)))),
 	)
 }
 
@@ -55,6 +53,7 @@ impl MultitoolApp {
 
 impl eframe::App for MultitoolApp {
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+		ctx.options_mut(|opts| opts.theme_preference = egui::ThemePreference::Dark);
 		egui::CentralPanel::default().show(ctx, |ui| {
 			StripBuilder::new(ui)
 				.sizes(Size::exact(30.0), 2) // Tool strips.
@@ -62,6 +61,7 @@ impl eframe::App for MultitoolApp {
 				.size(Size::exact(34.0)) // Roster editor heading
 				.size(Size::exact(38.0)) // Roster editor menu.
 				.size(Size::remainder()) // Roster editor.
+				.size(Size::exact(15.0))
 				.vertical(|mut strip| {
 					// Add tools.
 					strip.cell(|ui| {

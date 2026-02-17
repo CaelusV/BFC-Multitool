@@ -2,8 +2,8 @@ use eframe::{
 	egui::{
 		self,
 		style::{ScrollStyle, Selection, Spacing, Widgets},
-		Align, Checkbox, Color32, Layout, Margin, RichText, Rounding, ScrollArea, Stroke, Style,
-		TextEdit, Ui, Vec2, Visuals, WidgetText,
+		Align, Checkbox, Color32, CornerRadius, Layout, Margin, RichText, Stroke, Style, TextEdit,
+		Ui, Vec2, Visuals, WidgetText,
 	},
 	epaint::Shadow,
 };
@@ -25,7 +25,7 @@ pub struct RosterEditor {
 }
 
 impl RosterEditor {
-	const INNER_MARGIN: Margin = Margin::same(5.0);
+	const INNER_MARGIN: Margin = Margin::same(5);
 
 	pub fn editor(&mut self, ui: &mut Ui) {
 		// FIXME: Remove this here, and in menu. Add instead a style that is persistent.
@@ -33,16 +33,16 @@ impl RosterEditor {
 		Self::set_style(ui.style_mut());
 
 		egui::Frame::window(ui.style())
-			.inner_margin(Margin::symmetric(6.0, Self::INNER_MARGIN.left)) // x breaks striped if not same as inner_margin, or if spacing.x too high.
-			.rounding(Rounding::ZERO)
+			.inner_margin(Margin::symmetric(6, Self::INNER_MARGIN.left)) // x breaks striped if not same as inner_margin, or if spacing.x too high.
+			.corner_radius(CornerRadius::ZERO)
 			.show(ui, |ui| {
-				ScrollArea::vertical().show(ui, |ui| {
+				ui.with_layout(Layout::top_down(Align::Center), |ui| {
 					TableBuilder::new(ui)
-						.column(Column::auto().resizable(true).at_least(20.0)) // ID.
-						.column(Column::remainder().resizable(true).at_least(250.0)) // Name.
-						.columns(Column::auto().resizable(true).at_least(100.0), 2) // Position, Medal.
-						.column(Column::auto().resizable(true).at_least(72.0)) // Captain.
-						.column(Column::auto().at_least(40.0).at_most(50.0)) // Active.
+						.column(Column::auto()) // ID.
+						.column(Column::remainder().at_most(500.0)) // Name.
+						.columns(Column::auto(), 2) // Position, Medal.
+						.column(Column::auto()) // Captain.
+						.column(Column::auto()) // Active.
 						.striped(true)
 						.cell_layout(Layout::left_to_right(Align::Center))
 						.header(20.0, |mut header| {
@@ -93,7 +93,7 @@ impl RosterEditor {
 									ui.ctx().style_mut(|p_ui| {
 										Self::set_style(p_ui);
 									});
-									egui::ComboBox::from_id_source("position{row_idx}")
+									egui::ComboBox::from_id_salt("position{row_idx}")
 										.selected_text(&self.rows[row_idx].position.to_string())
 										.show_ui(ui, |ui| {
 											for pos in Position::VARIANTS {
@@ -107,7 +107,7 @@ impl RosterEditor {
 								});
 								// Medal.
 								row.col(|ui| {
-									egui::ComboBox::from_id_source("medal{row_idx}")
+									egui::ComboBox::from_id_salt("medal{row_idx}")
 										.selected_text(&self.rows[row_idx].medal)
 										.show_ui(ui, |ui| {
 											ui.selectable_value(
@@ -165,8 +165,8 @@ impl RosterEditor {
 
 	pub fn heading(&mut self, ui: &mut Ui) {
 		let mut margin = Self::INNER_MARGIN;
-		margin.bottom = 10.0;
-		egui::Frame::none().outer_margin(margin).show(ui, |ui| {
+		margin.bottom = 10;
+		egui::Frame::NONE.outer_margin(margin).show(ui, |ui| {
 			ui.with_layout(Layout::top_down(Align::Center), |ui| {
 				ui.label(RichText::new("Roster Editor").size(32.0));
 			});
@@ -174,133 +174,137 @@ impl RosterEditor {
 	}
 
 	pub fn menu(&mut self, ui: &mut Ui) {
-		egui::Frame::none()
-			.inner_margin(Margin::symmetric(Self::INNER_MARGIN.left, 0.0))
+		egui::Frame::NONE
+			.inner_margin(Margin::symmetric(Self::INNER_MARGIN.left, 0))
 			.show(ui, |ui| {
-				StripBuilder::new(ui)
-					.size(Size::exact(45.0))
-					.size(Size::exact(180.0))
-					.size(Size::exact(60.0))
-					.size(Size::exact(60.0))
-					.cell_layout(Layout::left_to_right(Align::Center))
-					.horizontal(|mut strip| {
-						strip.cell(|ui| {
-							Self::set_style(ui.style_mut());
-							ui.label("Team:");
-						});
+				ui.with_layout(Layout::top_down(Align::Center), |ui| {
+					StripBuilder::new(ui)
+						.size(Size::exact(45.0))
+						.size(Size::exact(180.0))
+						.size(Size::exact(60.0))
+						.size(Size::exact(60.0))
+						.cell_layout(Layout::left_to_right(Align::Center))
+						.horizontal(|mut strip| {
+							strip.cell(|ui| {
+								Self::set_style(ui.style_mut());
+								ui.label("Team:");
+							});
 
-						strip.cell(|ui| {
-							Self::set_style(ui.style_mut());
-							if ui
-								.add(
-									TextEdit::singleline(&mut self.team)
-										.desired_width(f32::INFINITY),
-								)
-								.changed()
-							{
-								// Might do something in the future.
-							}
-						});
-
-						strip.cell(|ui| {
-							if widget_creator::button(
-								ui,
-								"Import",
-								Layout::left_to_right(Align::Center),
-							)
-							.clicked()
-							{
-								if let Some(path) = FileDialog::new()
-									.set_title("Import MSRF roster file")
-									.add_filter("Mister Skeleton Roster Format", &["msrf"])
-									.add_filter("Tom's Obvious Minimal Language", &["toml"])
-									.pick_file()
+							strip.cell(|ui| {
+								Self::set_style(ui.style_mut());
+								if ui
+									.add(
+										TextEdit::singleline(&mut self.team)
+											.desired_width(f32::INFINITY),
+									)
+									.changed()
 								{
-									match FormatType::from_extension(path.extension()) {
-										Some(FormatType::MSRF) => {
-											match RosterFile::get_rosterfile(path) {
-												Ok(roster_file) => {
-													match Roster::from_rosterfile(&roster_file) {
-														Ok(roster) => {
-															let rows =
-																RosterRow::from_roster(roster);
-															self.rows = rows;
-															self.team = roster_file.team;
-														}
-														Err(e) => Message::error_message(
+									// Might do something in the future.
+								}
+							});
+
+							strip.cell(|ui| {
+								if widget_creator::button(
+									ui,
+									"Import",
+									Layout::left_to_right(Align::Center),
+								)
+								.clicked()
+								{
+									if let Some(path) = FileDialog::new()
+										.set_title("Import MSRF roster file")
+										.add_filter("Mister Skeleton Roster Format", &["msrf"])
+										.add_filter("Tom's Obvious Minimal Language", &["toml"])
+										.pick_file()
+									{
+										match FormatType::from_extension(path.extension()) {
+											Some(FormatType::MSRF) => {
+												match RosterFile::get_rosterfile(path) {
+													Ok(roster_file) => {
+														match Roster::from_rosterfile(&roster_file)
+														{
+															Ok(roster) => {
+																let rows =
+																	RosterRow::from_roster(roster);
+																self.rows = rows;
+																self.team = roster_file.team;
+															}
+															Err(e) => Message::error_message(
+																"Import Error",
+																&e.to_string(),
+															),
+														};
+													}
+													Err(rosterfile_error) => {
+														Message::error_message(
 															"Import Error",
-															&e.to_string(),
-														),
-													};
+															&rosterfile_error.to_string(),
+														);
+													}
 												}
-												Err(rosterfile_error) => {
+											}
+											Some(FormatType::TOML) => match Roster::from_toml(path)
+											{
+												Ok(roster) => {
+													let rows = RosterRow::from_roster(roster);
+													self.rows = rows;
+													self.team = "".to_string();
+												}
+												Err(roster_error) => {
 													Message::error_message(
 														"Import Error",
-														&rosterfile_error.to_string(),
+														&roster_error.to_string(),
+													);
+												}
+											},
+											None => Message::error_message(
+												"Import Error",
+												"Failed to parse file extension",
+											),
+										}
+									}
+								}
+							});
+
+							strip.cell(|ui| {
+								if widget_creator::button(
+									ui,
+									"Export",
+									Layout::left_to_right(Align::Center),
+								)
+								.clicked()
+								{
+									if let Some(save_path) = FileDialog::new()
+										.set_title("Export roster file")
+										.set_file_name(slugify(&self.team))
+										.add_filter("Mister Skeleton Roster Format", &["msrf"])
+										.add_filter("Tom's Obvious Minimal Language", &["toml"])
+										.save_file()
+									{
+										match FormatType::from_extension(save_path.extension()) {
+											Some(format_type) => {
+												if let Err(e) = create_team_file(
+													&self.team,
+													RosterRow::to_roster(&self.rows),
+													&save_path.parent().unwrap(),
+													format_type,
+												) {
+													Message::error_message(
+														"Export Error",
+														&e.to_string(),
 													);
 												}
 											}
+											None => Message::error_message(
+												"Export Error",
+												"Failed to parse file extension",
+											),
 										}
-										Some(FormatType::TOML) => match Roster::from_toml(path) {
-											Ok(roster) => {
-												let rows = RosterRow::from_roster(roster);
-												self.rows = rows;
-												self.team = "".to_string();
-											}
-											Err(roster_error) => {
-												Message::error_message(
-													"Import Error",
-													&roster_error.to_string(),
-												);
-											}
-										},
-										None => Message::error_message(
-											"Import Error",
-											"Failed to parse file extension",
-										),
 									}
 								}
-							}
+							});
 						});
-
-						strip.cell(|ui| {
-							if widget_creator::button(
-								ui,
-								"Export",
-								Layout::left_to_right(Align::Center),
-							)
-							.clicked()
-							{
-								if let Some(save_path) = FileDialog::new()
-									.set_title("Export roster file")
-									.set_file_name(slugify(&self.team))
-									.add_filter("Mister Skeleton Roster Format", &["msrf"])
-									.add_filter("Tom's Obvious Minimal Language", &["toml"])
-									.save_file()
-								{
-									match FormatType::from_extension(save_path.extension()) {
-										Some(format_type) => {
-											if let Err(e) = create_team_file(
-												&self.team,
-												RosterRow::to_roster(&self.rows),
-												&save_path.parent().unwrap(),
-												format_type,
-											) {
-												Message::error_message(
-													"Export Error",
-													&e.to_string(),
-												);
-											}
-										}
-										None => Message::error_message(
-											"Export Error",
-											"Failed to parse file extension",
-										),
-									}
-								}
-							}
-						});
-					});
+				})
 			});
 	}
 
@@ -323,7 +327,7 @@ impl RosterEditor {
 		let stroke_color = Color32::from_rgb(50, 80, 100);
 		let bg_stroke = Stroke::new(1.0, stroke_color);
 		let fg_stroke = Stroke::new(3.0, Color32::from_gray(200));
-		let rounding = Rounding::same(2.0);
+		let corner_radius = CornerRadius::same(2);
 
 		let selected_color = Color32::from_rgb(40, 100, 150);
 		let selected_stroke_color = Color32::from_rgb(120, 200, 250);
@@ -333,7 +337,7 @@ impl RosterEditor {
 		// Controls resizable bars and header/label text.
 		let mut non_interactive = widgets.noninteractive;
 		non_interactive.bg_stroke = Stroke::new(1.0, Color32::DARK_GRAY);
-		non_interactive.rounding = rounding;
+		non_interactive.corner_radius = corner_radius;
 		non_interactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
 		widgets.noninteractive = non_interactive;
 
@@ -342,7 +346,7 @@ impl RosterEditor {
 		inactive.bg_fill = color; // Radio button and scrollbar.
 		inactive.weak_bg_fill = color; // Combo-box.
 		inactive.bg_stroke = bg_stroke;
-		inactive.rounding = rounding;
+		inactive.corner_radius = corner_radius;
 		inactive.fg_stroke = fg_stroke;
 		widgets.inactive = inactive;
 
@@ -351,7 +355,7 @@ impl RosterEditor {
 		hovered.bg_fill = selected_color; // Radio button and scrollbar.
 		hovered.weak_bg_fill = selected_color; // Combo-box.
 		hovered.bg_stroke = selected_bg_stroke;
-		hovered.rounding = rounding;
+		hovered.corner_radius = corner_radius;
 		hovered.fg_stroke = selected_fg_stroke;
 		widgets.hovered = hovered;
 
@@ -360,7 +364,7 @@ impl RosterEditor {
 		active.bg_fill = selected_color;
 		active.weak_bg_fill = selected_color;
 		active.bg_stroke = selected_bg_stroke;
-		active.rounding = rounding;
+		active.corner_radius = corner_radius;
 		active.fg_stroke = selected_fg_stroke;
 		widgets.active = active;
 
@@ -368,7 +372,7 @@ impl RosterEditor {
 		let mut open = widgets.open;
 		open.weak_bg_fill = selected_color;
 		open.bg_stroke = selected_bg_stroke;
-		open.rounding = rounding;
+		open.corner_radius = corner_radius;
 		open.fg_stroke = selected_fg_stroke;
 		widgets.open = open;
 
@@ -376,7 +380,12 @@ impl RosterEditor {
 
 		visuals.extreme_bg_color = Color32::from_gray(30);
 		visuals.faint_bg_color = Color32::from_gray(48);
-		visuals.text_cursor = fg_stroke;
+		visuals.text_cursor = egui::style::TextCursorStyle {
+			stroke: fg_stroke,
+			preview: true,
+			blink: true,
+			..Default::default()
+		};
 		visuals.window_fill = Color32::from_gray(40);
 		visuals.window_stroke = Stroke::new(1.0, Color32::DARK_GRAY);
 		visuals.window_shadow = Shadow::NONE;
