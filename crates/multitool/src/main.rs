@@ -25,7 +25,7 @@ fn main() -> Result<(), eframe::Error> {
 
 	let options = eframe::NativeOptions {
 		centered: true,
-		persist_window: false,
+		persist_window: true,
 		renderer: eframe::Renderer::Wgpu,
 		viewport,
 		..Default::default()
