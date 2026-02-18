@@ -8,7 +8,7 @@ use eframe::{
 use egui_extras::{Size, StripBuilder};
 use multitool::{
 	roster_editor::RosterEditor,
-	setup::setup_custom_fonts,
+	setup::{setup_custom_fonts, setup_style},
 	tools::{ToolItem, Tools},
 };
 
@@ -21,7 +21,7 @@ fn main() -> Result<(), eframe::Error> {
 		.with_icon(icon)
 		.with_resizable(true)
 		.with_maximize_button(true)
-		.with_inner_size(Vec2::new(710.0, 700.0));
+		.with_inner_size(Vec2::new(700.0, 700.0));
 
 	let options = eframe::NativeOptions {
 		centered: true,
@@ -47,13 +47,13 @@ struct MultitoolApp {
 impl MultitoolApp {
 	fn new(cc: &CreationContext) -> Self {
 		setup_custom_fonts(&cc.egui_ctx);
+		setup_style(&cc.egui_ctx);
 		Self::default()
 	}
 }
 
 impl eframe::App for MultitoolApp {
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		ctx.options_mut(|opts| opts.theme_preference = egui::ThemePreference::Dark);
 		egui::CentralPanel::default().show(ctx, |ui| {
 			StripBuilder::new(ui)
 				.sizes(Size::exact(30.0), 2) // Tool strips.
@@ -61,7 +61,7 @@ impl eframe::App for MultitoolApp {
 				.size(Size::exact(34.0)) // Roster editor heading
 				.size(Size::exact(38.0)) // Roster editor menu.
 				.size(Size::remainder()) // Roster editor.
-				.size(Size::exact(15.0))
+				.size(Size::exact(8.0))
 				.vertical(|mut strip| {
 					// Add tools.
 					strip.cell(|ui| {

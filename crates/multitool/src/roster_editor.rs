@@ -1,11 +1,5 @@
-use eframe::{
-	egui::{
-		self,
-		style::{ScrollStyle, Selection, Spacing, Widgets},
-		Align, Checkbox, Color32, CornerRadius, Layout, Margin, RichText, Stroke, Style, TextEdit,
-		Ui, Vec2, Visuals, WidgetText,
-	},
-	epaint::Shadow,
+use eframe::egui::{
+	self, Align, Checkbox, CornerRadius, Layout, Margin, Rangef, RichText, TextEdit, Ui, WidgetText,
 };
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use lineupper::{
@@ -17,7 +11,7 @@ use lineupper::{
 use rfd::FileDialog;
 use strum::VariantArray;
 
-use crate::{message::Message, setup::setup_custom_fonts, widget_creator};
+use crate::{message::Message, widget_creator};
 
 pub struct RosterEditor {
 	rows: [RosterRow; 23],
@@ -28,138 +22,120 @@ impl RosterEditor {
 	const INNER_MARGIN: Margin = Margin::same(5);
 
 	pub fn editor(&mut self, ui: &mut Ui) {
-		// FIXME: Remove this here, and in menu. Add instead a style that is persistent.
-		// Instead of creating it constantly.
-		Self::set_style(ui.style_mut());
-
 		egui::Frame::window(ui.style())
 			.inner_margin(Margin::symmetric(6, Self::INNER_MARGIN.left)) // x breaks striped if not same as inner_margin, or if spacing.x too high.
 			.corner_radius(CornerRadius::ZERO)
 			.show(ui, |ui| {
-				ui.with_layout(Layout::top_down(Align::Center), |ui| {
-					TableBuilder::new(ui)
-						.column(Column::auto()) // ID.
-						.column(Column::remainder().at_most(500.0)) // Name.
-						.columns(Column::auto(), 2) // Position, Medal.
-						.column(Column::auto()) // Captain.
-						.column(Column::auto()) // Active.
-						.striped(true)
-						.cell_layout(Layout::left_to_right(Align::Center))
-						.header(20.0, |mut header| {
-							header.col(|ui| {
-								ui.heading("ID");
-							});
-							header.col(|ui| {
-								ui.heading("Name");
-							});
-							header.col(|ui| {
-								ui.heading("Position");
-							});
-							header.col(|ui| {
-								ui.heading("Medal");
-							});
-							header.col(|ui| {
-								ui.heading("Captain");
-							});
-							header.col(|ui| {
-								ui.heading("Active");
-							});
-						})
-						.body(|body| {
-							let row_height = 22.0;
-							let num_rows = 23;
+				TableBuilder::new(ui)
+					.column(Column::auto()) // ID.
+					.column(Column::remainder().range(Rangef::new(100.0, 300.0))) // Name.
+					.columns(Column::auto(), 2) // Position, Medal.
+					.column(Column::auto()) // Captain.
+					.column(Column::auto()) // Active.
+					.striped(true)
+					.auto_shrink(true)
+					.header(20.0, |mut header| {
+						header.col(|ui| {
+							ui.heading("ID");
+						});
+						header.col(|ui| {
+							ui.heading("Name");
+						});
+						header.col(|ui| {
+							ui.heading("Position");
+						});
+						header.col(|ui| {
+							ui.heading("Medal");
+						});
+						header.col(|ui| {
+							ui.heading("Captain");
+						});
+						header.col(|ui| {
+							ui.heading("Active");
+						});
+					})
+					.body(|body| {
+						let row_height = 22.0;
+						let num_rows = 23;
 
-							body.rows(row_height, num_rows, |mut row| {
-								// ID.
-								let row_idx = row.index();
-								row.col(|ui| {
-									ui.label(format!("{}", self.rows[row_idx].id));
-								});
-								// Name.
-								row.col(|ui| {
-									if ui
-										.add(
-											TextEdit::singleline(&mut self.rows[row_idx].name)
-												.desired_width(f32::INFINITY),
-										)
-										.changed()
-									{
-										// Might do something in the future.
-									}
-								});
-								// Position.
-								row.col(|ui| {
-									// NOTE: Hack to fix popup styling.
-									ui.ctx().style_mut(|p_ui| {
-										Self::set_style(p_ui);
-									});
-									egui::ComboBox::from_id_salt("position{row_idx}")
-										.selected_text(&self.rows[row_idx].position.to_string())
-										.show_ui(ui, |ui| {
-											for pos in Position::VARIANTS {
-												ui.selectable_value(
-													&mut self.rows[row_idx].position,
-													*pos,
-													pos.to_string(),
-												);
-											}
-										});
-								});
-								// Medal.
-								row.col(|ui| {
-									egui::ComboBox::from_id_salt("medal{row_idx}")
-										.selected_text(&self.rows[row_idx].medal)
-										.show_ui(ui, |ui| {
+						body.rows(row_height, num_rows, |mut row| {
+							// ID.
+							let row_idx = row.index();
+							row.col(|ui| {
+								ui.label(format!("{}", self.rows[row_idx].id));
+							});
+							// Name.
+							row.col(|ui| {
+								if ui
+									.add(
+										TextEdit::singleline(&mut self.rows[row_idx].name)
+											.desired_width(f32::INFINITY),
+									)
+									.changed()
+								{
+									// Might do something in the future.
+								}
+							});
+							// Position.
+							row.col(|ui| {
+								egui::ComboBox::from_id_salt("position{row_idx}")
+									.selected_text(&self.rows[row_idx].position.to_string())
+									.show_ui(ui, |ui| {
+										for pos in Position::VARIANTS {
 											ui.selectable_value(
-												&mut self.rows[row_idx].medal,
-												Medal::None,
-												&Medal::None,
+												&mut self.rows[row_idx].position,
+												*pos,
+												pos.to_string(),
 											);
-											ui.selectable_value(
-												&mut self.rows[row_idx].medal,
-												Medal::Silver,
-												&Medal::Silver,
-											);
-											ui.selectable_value(
-												&mut self.rows[row_idx].medal,
-												Medal::Gold,
-												&Medal::Gold,
-											);
-										});
-
-									// NOTE: Reset style after hack.
-									ui.ctx().style_mut(|p_ui| {
-										*p_ui = Style::default();
-									});
-									setup_custom_fonts(ui.ctx()) // Setup fonts after resetting style.
-								});
-								// Captain.
-								row.col(|ui| {
-									if ui
-										.add(egui::RadioButton::new(
-											self.rows[row_idx].captain == true,
-											format!("{}", &mut self.rows[row_idx].captain),
-										))
-										.clicked()
-									{
-										for row in &mut self.rows {
-											row.captain = false;
 										}
-
-										self.rows[row_idx].captain = true;
-									}
-								});
-								// Active checkbox.
-								row.col(|ui| {
-									ui.with_layout(Layout::top_down(Align::Center), |ui| {
-										ui.add(Checkbox::without_text(
-											&mut self.rows[row_idx].active,
-										));
 									});
+							});
+							// Medal.
+							row.col(|ui| {
+								egui::ComboBox::from_id_salt("medal{row_idx}")
+									.selected_text(&self.rows[row_idx].medal)
+									.show_ui(ui, |ui| {
+										ui.selectable_value(
+											&mut self.rows[row_idx].medal,
+											Medal::None,
+											&Medal::None,
+										);
+										ui.selectable_value(
+											&mut self.rows[row_idx].medal,
+											Medal::Silver,
+											&Medal::Silver,
+										);
+										ui.selectable_value(
+											&mut self.rows[row_idx].medal,
+											Medal::Gold,
+											&Medal::Gold,
+										);
+									});
+							});
+							// Captain.
+							row.col(|ui| {
+								if ui
+									.add(egui::RadioButton::new(
+										self.rows[row_idx].captain == true,
+										format!("{}", &mut self.rows[row_idx].captain),
+									))
+									.clicked()
+								{
+									for row in &mut self.rows {
+										row.captain = false;
+									}
+
+									self.rows[row_idx].captain = true;
+								}
+							});
+							// Active checkbox.
+							row.col(|ui| {
+								ui.with_layout(Layout::top_down(Align::Center), |ui| {
+									ui.add(Checkbox::without_text(&mut self.rows[row_idx].active));
 								});
 							});
 						});
-				})
+					});
 			});
 	}
 
@@ -186,12 +162,10 @@ impl RosterEditor {
 						.cell_layout(Layout::left_to_right(Align::Center))
 						.horizontal(|mut strip| {
 							strip.cell(|ui| {
-								Self::set_style(ui.style_mut());
 								ui.label("Team:");
 							});
 
 							strip.cell(|ui| {
-								Self::set_style(ui.style_mut());
 								if ui
 									.add(
 										TextEdit::singleline(&mut self.team)
@@ -306,96 +280,6 @@ impl RosterEditor {
 						});
 				})
 			});
-	}
-
-	fn set_spacing(spacing: &mut Spacing) {
-		let mut scroll = ScrollStyle::solid();
-		scroll.bar_width = 16.0;
-
-		spacing.scroll = scroll;
-		spacing.item_spacing = Vec2::new(10.0, 8.0);
-	}
-
-	fn set_style(style: &mut Style) {
-		Self::set_spacing(&mut style.spacing);
-		Self::set_visuals(&mut style.visuals);
-	}
-
-	fn set_visuals(visuals: &mut Visuals) {
-		let mut widgets = Widgets::dark();
-		let color = Color32::from_rgb(45, 60, 70);
-		let stroke_color = Color32::from_rgb(50, 80, 100);
-		let bg_stroke = Stroke::new(1.0, stroke_color);
-		let fg_stroke = Stroke::new(3.0, Color32::from_gray(200));
-		let corner_radius = CornerRadius::same(2);
-
-		let selected_color = Color32::from_rgb(40, 100, 150);
-		let selected_stroke_color = Color32::from_rgb(120, 200, 250);
-		let selected_bg_stroke = Stroke::new(1.0, selected_stroke_color);
-		let selected_fg_stroke = Stroke::new(2.0, Color32::WHITE);
-
-		// Controls resizable bars and header/label text.
-		let mut non_interactive = widgets.noninteractive;
-		non_interactive.bg_stroke = Stroke::new(1.0, Color32::DARK_GRAY);
-		non_interactive.corner_radius = corner_radius;
-		non_interactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-		widgets.noninteractive = non_interactive;
-
-		// // Controls main combo-box, radio buttons, scrollbar and text in TextEdit.
-		let mut inactive = widgets.inactive;
-		inactive.bg_fill = color; // Radio button and scrollbar.
-		inactive.weak_bg_fill = color; // Combo-box.
-		inactive.bg_stroke = bg_stroke;
-		inactive.corner_radius = corner_radius;
-		inactive.fg_stroke = fg_stroke;
-		widgets.inactive = inactive;
-
-		// // Controls textfield, main combo-box, radio button, scrollbar when hovered.
-		let mut hovered = widgets.hovered;
-		hovered.bg_fill = selected_color; // Radio button and scrollbar.
-		hovered.weak_bg_fill = selected_color; // Combo-box.
-		hovered.bg_stroke = selected_bg_stroke;
-		hovered.corner_radius = corner_radius;
-		hovered.fg_stroke = selected_fg_stroke;
-		widgets.hovered = hovered;
-
-		// Controls main combo-box, radio button, scrollbar when clicking.
-		let mut active = widgets.active;
-		active.bg_fill = selected_color;
-		active.weak_bg_fill = selected_color;
-		active.bg_stroke = selected_bg_stroke;
-		active.corner_radius = corner_radius;
-		active.fg_stroke = selected_fg_stroke;
-		widgets.active = active;
-
-		// Controls main combo-box button when open.
-		let mut open = widgets.open;
-		open.weak_bg_fill = selected_color;
-		open.bg_stroke = selected_bg_stroke;
-		open.corner_radius = corner_radius;
-		open.fg_stroke = selected_fg_stroke;
-		widgets.open = open;
-
-		visuals.widgets = widgets;
-
-		visuals.extreme_bg_color = Color32::from_gray(30);
-		visuals.faint_bg_color = Color32::from_gray(48);
-		visuals.text_cursor = egui::style::TextCursorStyle {
-			stroke: fg_stroke,
-			preview: true,
-			blink: true,
-			..Default::default()
-		};
-		visuals.window_fill = Color32::from_gray(40);
-		visuals.window_stroke = Stroke::new(1.0, Color32::DARK_GRAY);
-		visuals.window_shadow = Shadow::NONE;
-		visuals.selection = Selection {
-			bg_fill: selected_color,
-			stroke: Stroke {
-				color: Color32::WHITE,
-				width: 1.0,
-			},
-		};
 	}
 }
 
