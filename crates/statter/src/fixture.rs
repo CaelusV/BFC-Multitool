@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{team::TeamName, tournament::GroupID};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Fixture {
 	pub team1: TeamName,
 	pub team2: TeamName,
@@ -82,7 +82,7 @@ pub enum FixtureError {
 	MissingPenalties2(String, String, u8),
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct GreatestFixture {
 	pub fixture: Fixture,
 	pub tournament_name: String,

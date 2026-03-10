@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{fixture::GreatestFixture, tournament::Participation};
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct MatchupHistory {
 	pub opponent_name: TeamName,
 	pub goals_against: u32,
@@ -61,7 +61,7 @@ impl MatchupHistory {
 }
 
 // Used both as Team stats for tournament and Team stats over time.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Team {
 	pub name: TeamName,
 	pub goals_against: u32,
@@ -289,7 +289,7 @@ pub enum TeamName {
 	Vidya,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TeamPlacement {
 	pub team: Team,
 	pub placement: Option<u8>,

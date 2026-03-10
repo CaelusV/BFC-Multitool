@@ -18,7 +18,7 @@ pub struct Brackets {
 	pub groups: Option<Vec<Fixture>>,
 }
 
-#[derive(Deserialize, Serialize, Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub enum GroupID {
 	A,
 	B,
@@ -281,7 +281,7 @@ pub struct HeadToHead {
 	pub decider_points: u8,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Participation {
 	tournament_name: String,
 	pub date: Datetime,
@@ -458,7 +458,7 @@ impl<'a> PlayoffStage<'a> {
 					let b_h2h = b.head_to_head;
 
 					if let (Some(a), Some(b)) = (a_h2h, b_h2h) {
-						a.cmp(&b)
+						b.cmp(&a)
 					} else {
 						if sort_error.is_ok() {
 							sort_error = Err(anyhow!(
