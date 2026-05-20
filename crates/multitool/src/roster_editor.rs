@@ -32,6 +32,7 @@ impl RosterEditor {
 					.columns(Column::auto(), 2) // Position, Medal.
 					.column(Column::auto()) // Captain.
 					.column(Column::auto()) // Active.
+					.column(Column::auto()) // Portrait Name.
 					.striped(true)
 					.auto_shrink(true)
 					.header(20.0, |mut header| {
@@ -52,6 +53,9 @@ impl RosterEditor {
 						});
 						header.col(|ui| {
 							ui.heading("Active");
+						});
+						header.col(|ui| {
+							ui.heading("Portrait Name");
 						});
 					})
 					.body(|body| {
@@ -133,6 +137,18 @@ impl RosterEditor {
 								ui.with_layout(Layout::top_down(Align::Center), |ui| {
 									ui.add(Checkbox::without_text(&mut self.rows[row_idx].active));
 								});
+							});
+							// Name.
+							row.col(|ui| {
+								if ui
+									.add(
+										TextEdit::singleline(&mut self.rows[row_idx].portrait_name)
+											.desired_width(f32::INFINITY),
+									)
+									.changed()
+								{
+									// Might do something in the future.
+								}
 							});
 						});
 					});
@@ -305,6 +321,7 @@ struct RosterRow {
 	medal: Medal,
 	captain: bool,
 	active: bool,
+	portrait_name: String,
 }
 
 impl RosterRow {
@@ -319,6 +336,7 @@ impl RosterRow {
 				None => false,
 			},
 			active,
+			portrait_name: player.portrait_name.unwrap_or_default(),
 		}
 	}
 
@@ -356,6 +374,10 @@ impl RosterRow {
 					player.name.clone(),
 					player.position,
 					player.active,
+					match player.portrait_name.as_str() {
+					    "" => None,
+						_ => Some(player.portrait_name.clone())
+					},
 				)
 			})
 			.collect();

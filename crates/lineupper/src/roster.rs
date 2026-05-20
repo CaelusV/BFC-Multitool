@@ -75,13 +75,8 @@ impl Roster {
 			.active
 			.iter()
 			.map(|p| {
-				let captain = if let Some(true) = p.captain {
-					true
-				} else {
-					false
-				};
 				let ps =
-					PlayerState::from(captain, p.id, p.medal, p.name.clone(), p.position, true);
+					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, true, p.portrait_name.clone());
 				(PlayerState::to_msrf_string(&ps), p.id)
 			})
 			.collect();
@@ -90,13 +85,8 @@ impl Roster {
 			.reserve
 			.iter()
 			.map(|p| {
-				let captain = if let Some(true) = p.captain {
-					true
-				} else {
-					false
-				};
 				let ps =
-					PlayerState::from(captain, p.id, p.medal, p.name.clone(), p.position, false);
+					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, false, p.portrait_name.clone());
 				(PlayerState::to_msrf_string(&ps), p.id)
 			})
 			.collect();

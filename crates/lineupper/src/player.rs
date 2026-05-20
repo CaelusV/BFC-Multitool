@@ -35,6 +35,7 @@ impl PlayerState {
 		name: String,
 		position: Position,
 		active: bool,
+		portrait_name: Option<String>,
 	) -> Self {
 		let captain = match captain {
 			true => Some(true),
@@ -46,7 +47,7 @@ impl PlayerState {
 			id,
 			medal,
 			name,
-			portrait_name: None,
+			portrait_name,
 			position,
 		};
 
