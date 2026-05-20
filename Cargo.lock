@@ -1995,7 +1995,7 @@ checksum = "d4a5ff6bcca6c4867b1c4fd4ef63e4db7436ef363e0ad7531d1558856bae64f4"
 
 [[package]]
 name = "lineupper"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "image",
@@ -2134,7 +2134,7 @@ dependencies = [
 
 [[package]]
 name = "multitool"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "eframe",
@@ -3527,7 +3527,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "statter"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "serde",
