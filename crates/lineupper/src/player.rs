@@ -43,6 +43,7 @@ impl PlayerState {
 		};
 
 		let player = Player {
+		    active: Some(active),
 			captain,
 			id,
 			medal,
@@ -130,6 +131,7 @@ impl PlayerState {
 		}
 
 		let player = Player {
+		    active: Some(active),
 			captain,
 			id,
 			medal,
@@ -147,24 +149,20 @@ impl PlayerState {
 	}
 
 	pub(crate) fn to_msrf_string(&self) -> String {
-		let active;
-
-		let player = match self {
+		let (active, player) = match self {
 			PlayerState::Active(p) => {
-				active = true;
-				p
+				(true, p)
 			}
 			PlayerState::Reserve(p) => {
-				active = false;
-				p
+				(false, p)
 			}
 		};
 
-		let mut tags = if active {
-			String::from(" (a) ")
-		} else {
-			String::from(" ")
-		};
+		let mut tags = String::from(" ");
+
+		if active {
+			tags += "(a) ";
+		}
 
 		match player.medal {
 			Some(Medal::Gold) => tags += "(g) ",
@@ -192,6 +190,8 @@ impl PlayerState {
 
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Player {
+    #[serde(skip)]
+    pub active: Option<bool>,
 	pub captain: Option<bool>,
 	pub id: u8,
 	pub medal: Option<Medal>,

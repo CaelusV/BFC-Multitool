@@ -71,29 +71,18 @@ impl Roster {
 	}
 
 	pub(crate) fn to_msrf_string(team: &str, roster: &Roster) -> String {
-		let mut roster_active: Vec<(String, u8)> = roster
+		let mut roster: Vec<(String, u8)> = roster
 			.active
-			.iter()
+			.iter().chain(roster.reserve.iter())
 			.map(|p| {
 				let ps =
-					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, true, p.portrait_name.clone());
+					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, p.active.unwrap_or_default(), p.portrait_name.clone());
 				(PlayerState::to_msrf_string(&ps), p.id)
 			})
 			.collect();
 
-		let mut roster_reserve: Vec<(String, u8)> = roster
-			.reserve
-			.iter()
-			.map(|p| {
-				let ps =
-					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, false, p.portrait_name.clone());
-				(PlayerState::to_msrf_string(&ps), p.id)
-			})
-			.collect();
-
-		roster_active.append(&mut roster_reserve);
-		roster_active.sort_by(|(_, a), (_, b)| a.cmp(b));
-		let msrf_strings: Vec<String> = roster_active.into_iter().map(|(s, _)| s).collect();
+		roster.sort_by(|(_, a), (_, b)| a.cmp(b));
+		let msrf_strings: Vec<String> = roster.into_iter().map(|(s, _)| s).collect();
 		let msrf_header = format!("---{team}---\n\nCURRENT LINE-UP:\n\n");
 
 		msrf_header + &msrf_strings.join("\n")
