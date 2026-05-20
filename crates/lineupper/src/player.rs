@@ -43,7 +43,7 @@ impl PlayerState {
 		};
 
 		let player = Player {
-		    active: Some(active),
+		    active,
 			captain,
 			id,
 			medal,
@@ -131,7 +131,7 @@ impl PlayerState {
 		}
 
 		let player = Player {
-		    active: Some(active),
+		    active: active,
 			captain,
 			id,
 			medal,
@@ -191,7 +191,7 @@ impl PlayerState {
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Player {
     #[serde(skip)]
-    pub active: Option<bool>,
+    pub active: bool,
 	pub captain: Option<bool>,
 	pub id: u8,
 	pub medal: Option<Medal>,

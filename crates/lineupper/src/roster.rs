@@ -76,7 +76,7 @@ impl Roster {
 			.iter().chain(roster.reserve.iter())
 			.map(|p| {
 				let ps =
-					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, p.active.unwrap_or_default(), p.portrait_name.clone());
+					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, p.active, p.portrait_name.clone());
 				(PlayerState::to_msrf_string(&ps), p.id)
 			})
 			.collect();
