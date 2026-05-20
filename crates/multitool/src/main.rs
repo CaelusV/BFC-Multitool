@@ -53,9 +53,9 @@ impl MultitoolApp {
 }
 
 impl eframe::App for MultitoolApp {
-	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		egui::CentralPanel::default().show(ctx, |ui| {
-			StripBuilder::new(ui)
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            StripBuilder::new(ui)
 				.sizes(Size::exact(30.0), 2) // Tool strips.
 				.size(Size::exact(10.0)) // Separator.
 				.size(Size::exact(34.0)) // Roster editor heading
@@ -89,6 +89,6 @@ impl eframe::App for MultitoolApp {
 						self.roster_editor.editor(ui);
 					});
 				});
-		});
-	}
+        });
+    }
 }

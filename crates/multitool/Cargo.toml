@@ -10,8 +10,8 @@ winres = "0.1"
 
 [dependencies]
 anyhow.workspace = true
-eframe = { version = "0.33.3", features = ["default", "persistence", "wgpu"] }
-egui_extras = "0.33.3"
+eframe = { version = "0.34.2", features = ["default", "persistence", "wgpu"] }
+egui_extras = "0.34.2"
 image.workspace = true
 lineupper.workspace = true
 rfd = "0.17"

@@ -66,7 +66,7 @@ pub fn setup_custom_fonts(ctx: &Context) {
 	}
 	ctx.set_fonts(fonts);
 
-	ctx.style_mut(|style| {
+	ctx.global_style_mut(|style| {
 		style.text_styles = [
 			(
 				TextStyle::Small,
