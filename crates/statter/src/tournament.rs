@@ -604,7 +604,6 @@ impl<'a> PlayoffStage<'a> {
 			// Remove teams at end of stage.
 			teams_to_subtract += 1;
 			if stage_cutoff_if_n_teams.contains(&(teams_left - teams_to_subtract)) {
-				stages_left -= 1;
 				teams_left -= teams_to_subtract;
 				teams_to_subtract = 0;
 			}

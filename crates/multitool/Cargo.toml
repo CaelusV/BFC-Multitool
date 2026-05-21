@@ -10,10 +10,10 @@ winres = "0.1"
 
 [dependencies]
 anyhow.workspace = true
-eframe = { version = "0.34", features = ["default", "persistence", "wgpu"] }
-egui_extras = "0.34"
+iced = { version = "0.14", features = ["image"]}
 image.workspace = true
 lineupper.workspace = true
 rfd = "0.17"
 statter.workspace = true
 strum.workspace = true
+strum_macros.workspace = true
