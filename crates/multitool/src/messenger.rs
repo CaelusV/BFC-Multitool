@@ -1,13 +1,13 @@
 use rfd::{MessageButtons, MessageDialog, MessageLevel};
 
-pub(crate) struct Message {}
+pub struct Messenger {}
 
-impl Message {
-	pub(crate) fn error_message(title: &str, msg: &str) {
+impl Messenger {
+	pub fn error_message(title: &str, msg: &str) {
 		Self::message_dialog(title, msg, MessageLevel::Warning);
 	}
 
-	pub(crate) fn info_message(title: &str, msg: &str) {
+	pub fn info_message(title: &str, msg: &str) {
 		Self::message_dialog(title, msg, MessageLevel::Info);
 	}
 

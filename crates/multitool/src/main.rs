@@ -1,94 +1,277 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+#![windows_subsystem = "windows"] // Hide console window on Windows in release.
 
-use eframe::{
-	egui::{self, Vec2},
-	icon_data::from_png_bytes,
-	CreationContext,
+use iced::{
+	widget::{button, column, container},
+	window::Settings,
+	Alignment::{Center, Start},
+	Element,
+	Length::Fill,
+	Task,
 };
-use egui_extras::{Size, StripBuilder};
+use rfd::FileDialog;
+
+use lineupper::{
+	create::{create_team_file, FormatType},
+	roster::{Roster, RosterFile},
+	slugify,
+};
 use multitool::{
-	roster_editor::RosterEditor,
-	setup::{setup_custom_fonts, setup_style},
-	tools::{ToolItem, Tools},
+	messenger::Messenger,
+	roster_editor::{RosterEditor, RosterRow},
+	tools::{Tool, Tools},
+	Message, MARGIN,
 };
+use strum_macros::Display;
 
-fn main() -> Result<(), eframe::Error> {
-	let icon = from_png_bytes(include_bytes!("../icon.png")).expect("Couldn't find icon.png");
-	let version = env!("CARGO_PKG_VERSION");
+static ICON: &[u8] = include_bytes!("../icon.png");
+const ICON_HEIGHT: u32 = 256;
+const ICON_WIDTH: u32 = 256;
 
-	let viewport = egui::ViewportBuilder::default()
-		.with_title(format!("BFC Multitool {version} by CaelusV"))
-		.with_icon(icon)
-		.with_resizable(true)
-		.with_maximize_button(true)
-		.with_inner_size(Vec2::new(700.0, 700.0));
+fn main() -> iced::Result {
+	let image = image::load_from_memory(ICON).unwrap();
+	let icon =
+		iced::window::icon::from_rgba(image.as_bytes().to_vec(), ICON_WIDTH, ICON_HEIGHT).unwrap();
 
-	let options = eframe::NativeOptions {
-		centered: true,
-		persist_window: true,
-		renderer: eframe::Renderer::Wgpu,
-		viewport,
+	let settings = Settings {
+		size: (850, 800).into(),
+		min_size: Some((850, 400).into()),
+		position: iced::window::Position::Centered,
+		visible: true,
+		resizable: true,
+		closeable: true,
+		minimizable: true,
+		decorations: true,
+		level: iced::window::Level::Normal,
+		icon: Some(icon),
 		..Default::default()
 	};
 
-	eframe::run_native(
-		"BFC Multitool",
-		options,
-		Box::new(|cc| Ok(Box::new(MultitoolApp::new(cc)))),
-	)
+	iced::application(Application::default, Application::update, Application::view)
+		.antialiasing(true)
+		.title(Application::title)
+		.window(settings)
+		.run()
+}
+
+#[derive(Default, Display)]
+enum Page {
+	#[default]
+	RosterEditor,
+	Tools,
 }
 
 #[derive(Default)]
-struct MultitoolApp {
+struct Application {
 	roster_editor: RosterEditor,
-	tool_strip: Tools,
+	tools: Tools,
+	page: Page,
 }
 
-impl MultitoolApp {
-	fn new(cc: &CreationContext) -> Self {
-		setup_custom_fonts(&cc.egui_ctx);
-		setup_style(&cc.egui_ctx);
-		Self::default()
+impl Application {
+	fn title(&self) -> String {
+		const VERSION: &str = env!("CARGO_PKG_VERSION");
+		format!("BFC Multitool {VERSION} by CaelusV – {}", self.page)
 	}
-}
 
-impl eframe::App for MultitoolApp {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            StripBuilder::new(ui)
-				.sizes(Size::exact(30.0), 2) // Tool strips.
-				.size(Size::exact(10.0)) // Separator.
-				.size(Size::exact(34.0)) // Roster editor heading
-				.size(Size::exact(38.0)) // Roster editor menu.
-				.size(Size::remainder()) // Roster editor.
-				.size(Size::exact(8.0))
-				.vertical(|mut strip| {
-					// Add tools.
-					strip.cell(|ui| {
-						self.tool_strip.hstrip(ToolItem::Statter, ui);
-					});
+	fn update(&mut self, message: Message) -> Task<Message> {
+		match message {
+			Message::SwitchToRosterEditor => {
+				self.page = Page::RosterEditor;
+				Task::none()
+			}
+			Message::SwitchToTools => {
+				self.page = Page::Tools;
+				Task::none()
+			}
+			Message::NameChanged(name, row) => {
+				self.roster_editor.rows[row].name = name;
+				Task::none()
+			}
+			Message::PositionChanged(position, row) => {
+				self.roster_editor.rows[row].position.set(position);
+				Task::none()
+			}
+			Message::MedalChanged(medal, row) => {
+				self.roster_editor.rows[row].medal.set(medal);
+				Task::none()
+			}
+			Message::CaptainChanged(row) => {
+				self.roster_editor.captain = Some(row);
+				Task::none()
+			}
+			Message::ActiveChanged(is_active, row) => {
+				self.roster_editor.rows[row].active = is_active;
+				Task::none()
+			}
+			Message::PortraitNameChanged(pname, row) => {
+				self.roster_editor.rows[row].portrait_name = pname;
+				Task::none()
+			}
+			Message::TeamNameChanged(tname) => {
+				self.roster_editor.team = tname;
+				Task::none()
+			}
+			Message::ImportPressed => {
+				if let Some(path) = FileDialog::new()
+					.set_title("Import MSRF roster file")
+					.add_filter("Mister Skeleton Roster Format", &["msrf"])
+					.add_filter("Tom's Obvious Minimal Language", &["toml"])
+					.pick_file()
+				{
+					match FormatType::from_extension(path.extension()) {
+						Some(FormatType::MSRF) => match RosterFile::get_rosterfile(path) {
+							Ok(roster_file) => {
+								match Roster::from_rosterfile(&roster_file) {
+									Ok(roster) => {
+										let (rows, captain) = RosterRow::from_roster(roster);
+										self.roster_editor.rows = rows;
+										self.roster_editor.captain = captain;
+										self.roster_editor.team = roster_file.team;
+									}
+									Err(e) => {
+										Messenger::error_message("Import Error", &e.to_string())
+									}
+								};
+							}
+							Err(rosterfile_error) => {
+								Messenger::error_message(
+									"Import Error",
+									&rosterfile_error.to_string(),
+								);
+							}
+						},
+						Some(FormatType::TOML) => match Roster::from_toml(path) {
+							Ok(roster) => {
+								let (rows, captain) = RosterRow::from_roster(roster);
+								self.roster_editor.rows = rows;
+								self.roster_editor.captain = captain;
+								self.roster_editor.team = "".to_string();
+							}
+							Err(roster_error) => {
+								Messenger::error_message("Import Error", &roster_error.to_string());
+							}
+						},
+						None => Messenger::error_message(
+							"Import Error",
+							"Failed to parse file extension",
+						),
+					}
+				}
+				Task::none()
+			}
+			Message::ExportPressed => {
+				if let Some(save_path) = FileDialog::new()
+					.set_title("Export roster file")
+					.set_file_name(slugify(&self.roster_editor.team))
+					.add_filter("Mister Skeleton Roster Format", &["msrf"])
+					.add_filter("Tom's Obvious Minimal Language", &["toml"])
+					.save_file()
+				{
+					match FormatType::from_extension(save_path.extension()) {
+						Some(format_type) => {
+							if let Err(e) = create_team_file(
+								&self.roster_editor.team,
+								RosterRow::to_roster(
+									&self.roster_editor.rows,
+									self.roster_editor.captain,
+								),
+								&save_path.parent().unwrap(),
+								format_type,
+							) {
+								Messenger::error_message("Export Error", &e.to_string());
+							}
+						}
+						None => Messenger::error_message(
+							"Export Error",
+							"Failed to parse file extension",
+						),
+					}
+				}
+				Task::none()
+			}
+			Message::BrowseSource(tool) => {
+				if let Some(path) = rfd::FileDialog::new().pick_folder() {
+					match tool {
+						Tool::LineUpper => self.tools.lineupper_source = Some(path),
+						Tool::Statter => self.tools.statter_source = Some(path),
+					}
+				}
+				Task::none()
+			}
+			Message::BrowseDestination(tool) => {
+				if let Some(path) = rfd::FileDialog::new().pick_folder() {
+					match tool {
+						Tool::LineUpper => self.tools.lineupper_destination = Some(path),
+						Tool::Statter => self.tools.statter_destination = Some(path),
+					}
+				}
+				Task::none()
+			}
+			Message::Run(tool) => {
+				let (source, destination) = match tool {
+					Tool::LineUpper => (
+						self.tools.lineupper_source.as_ref(),
+						self.tools.lineupper_destination.as_ref(),
+					),
+					Tool::Statter => (
+						self.tools.statter_source.as_ref(),
+						self.tools.statter_destination.as_ref(),
+					),
+				};
 
-					strip.cell(|ui| {
-						self.tool_strip.hstrip(ToolItem::LineUpper, ui);
-					});
+				if let (Some(source), Some(destination)) = (source, destination) {
+					let error;
+					match tool {
+						Tool::LineUpper => {
+							error =
+								lineupper::create::create_team_and_portraits(source, destination)
+						}
+						Tool::Statter => {
+							error = statter::entry::run_tournaments(source, destination)
+						}
+					}
+					if let Err(e) = error {
+						Messenger::error_message("Run Error", &e.to_string());
+					}
+				} else {
+					Messenger::info_message(
+						"Run Error",
+						"A source or destination folder wasn't selected.",
+					);
+				}
+				Task::none()
+			}
+		}
+	}
 
-					strip.cell(|ui| {
-						ui.separator();
-					});
+	fn view(&self) -> Element<'_, Message> {
+		let content: Element<Message> = match self.page {
+			Page::RosterEditor => {
+				column![
+					column![button("Tools")
+						.style(button::secondary)
+						.on_press(Message::SwitchToTools)]
+					.width(Fill)
+					.align_x(Start),
+					self.roster_editor.editor(),
+				]
+			}
+			Page::Tools => {
+				column![
+					column![button("Roster Editor")
+						.style(button::secondary)
+						.on_press(Message::SwitchToRosterEditor)]
+					.width(Fill)
+					.align_x(Start),
+					self.tools.tools(),
+				]
+			}
+		}
+		.align_x(Center)
+		.spacing(MARGIN)
+		.width(Fill)
+		.into();
 
-					// Add roster editor.
-					strip.cell(|ui| {
-						self.roster_editor.heading(ui);
-					});
-
-					strip.cell(|ui| {
-						self.roster_editor.menu(ui);
-					});
-
-					strip.cell(|ui| {
-						self.roster_editor.editor(ui);
-					});
-				});
-        });
-    }
+		container(content).padding(MARGIN * 2.0).into()
+	}
 }

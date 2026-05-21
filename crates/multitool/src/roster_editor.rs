@@ -1,382 +1,253 @@
-use eframe::egui::{
-	self, Align, Checkbox, CornerRadius, Layout, Margin, Rangef, RichText, TextEdit, Ui, WidgetText,
+use std::fmt::Display;
+
+use iced::{
+	font,
+	widget::{button, column, combo_box, radio, row, scrollable, table, text, text_input, toggler},
+	Alignment::Center,
+	Element, Font,
 };
-use egui_extras::{Column, Size, StripBuilder, TableBuilder};
-use lineupper::{
-	create::{create_team_file, FormatType},
-	player::{PlayerState, Position},
-	roster::{Roster, RosterFile},
-	slugify,
-};
-use rfd::FileDialog;
 use strum::VariantArray;
 
-use crate::{message::Message, widget_creator};
+use lineupper::{
+	player::{Medal, Player, PlayerState, Position},
+	roster::Roster,
+};
+
+use crate::{Message, CHECKBOX_WIDTH, COMBO_BOX_WIDTH, MARGIN, RADIO_WIDTH, TEXT_INPUT_WIDTH};
 
 pub struct RosterEditor {
-	rows: [RosterRow; 23],
-	team: String,
+	pub rows: [RosterRow; 23],
+	pub captain: Option<usize>,
+	pub team: String,
 }
 
 impl RosterEditor {
-	const INNER_MARGIN: Margin = Margin::same(5);
+	const NAME_PLACEHOLDERS: [&'static str; 23] = [
+		"Gianluigi Buffon",
+		"Cristian Zaccardo",
+		"Fabio Grosso",
+		"Daniele De Rossi",
+		"Fabio Cannavaro",
+		"Andrea Barzagli",
+		"Alessandro Del Piero",
+		"Gennaro Gattuso",
+		"Luca Toni",
+		"Francesco Totti",
+		"Alberto Gilardino",
+		"Angelo Peruzzi",
+		"Alessandro Nesta",
+		"Marco Amelia",
+		"Vincenzo Iaquinta",
+		"Mauro Camoranesi",
+		"Simone Barone",
+		"Filippo Inzaghi",
+		"Gianluca Zambrotta",
+		"Simone Perrotta",
+		"Andrea Pirlo",
+		"Massimo Oddo",
+		"Marco Materazzi",
+	];
 
-	pub fn editor(&mut self, ui: &mut Ui) {
-		egui::Frame::window(ui.style())
-			.inner_margin(Margin::symmetric(6, Self::INNER_MARGIN.left)) // x breaks striped if not same as inner_margin, or if spacing.x too high.
-			.corner_radius(CornerRadius::ZERO)
-			.show(ui, |ui| {
-				TableBuilder::new(ui)
-					.column(Column::auto()) // ID.
-					.column(Column::remainder().range(Rangef::new(100.0, 300.0))) // Name.
-					.columns(Column::auto(), 2) // Position, Medal.
-					.column(Column::auto()) // Captain.
-					.column(Column::auto()) // Active.
-					.column(Column::auto()) // Portrait Name.
-					.striped(true)
-					.auto_shrink(true)
-					.header(20.0, |mut header| {
-						header.col(|ui| {
-							ui.heading("ID");
-						});
-						header.col(|ui| {
-							ui.heading("Name");
-						});
-						header.col(|ui| {
-							ui.heading("Position");
-						});
-						header.col(|ui| {
-							ui.heading("Medal");
-						});
-						header.col(|ui| {
-							ui.heading("Captain");
-						});
-						header.col(|ui| {
-							ui.heading("Active");
-						});
-						header.col(|ui| {
-							ui.heading("Portrait Name");
-						});
-					})
-					.body(|body| {
-						let row_height = 22.0;
-						let num_rows = 23;
+	pub fn editor(&self) -> Element<'_, Message> {
+		let menu = column![row![
+			text("Team:"),
+			text_input("Ex: Italy", &self.team)
+				.width(TEXT_INPUT_WIDTH)
+				.on_input(Message::TeamNameChanged)
+				.on_paste(Message::TeamNameChanged),
+			button("Import").on_press(Message::ImportPressed),
+			button("Export").on_press(Message::ExportPressed),
+		]
+		.align_y(Center)
+		.spacing(MARGIN)]
+		.align_x(Center);
 
-						body.rows(row_height, num_rows, |mut row| {
-							// ID.
-							let row_idx = row.index();
-							row.col(|ui| {
-								ui.label(format!("{}", self.rows[row_idx].id));
-							});
-							// Name.
-							row.col(|ui| {
-								if ui
-									.add(
-										TextEdit::singleline(&mut self.rows[row_idx].name)
-											.desired_width(f32::INFINITY),
-									)
-									.changed()
-								{
-									// Might do something in the future.
-								}
-							});
-							// Position.
-							row.col(|ui| {
-								egui::ComboBox::from_id_salt("position{row_idx}")
-									.selected_text(&self.rows[row_idx].position.to_string())
-									.show_ui(ui, |ui| {
-										for pos in Position::VARIANTS {
-											ui.selectable_value(
-												&mut self.rows[row_idx].position,
-												*pos,
-												pos.to_string(),
-											);
-										}
-									});
-							});
-							// Medal.
-							row.col(|ui| {
-								egui::ComboBox::from_id_salt("medal{row_idx}")
-									.selected_text(&self.rows[row_idx].medal)
-									.show_ui(ui, |ui| {
-										ui.selectable_value(
-											&mut self.rows[row_idx].medal,
-											Medal::None,
-											&Medal::None,
-										);
-										ui.selectable_value(
-											&mut self.rows[row_idx].medal,
-											Medal::Silver,
-											&Medal::Silver,
-										);
-										ui.selectable_value(
-											&mut self.rows[row_idx].medal,
-											Medal::Gold,
-											&Medal::Gold,
-										);
-									});
-							});
-							// Captain.
-							row.col(|ui| {
-								if ui
-									.add(egui::RadioButton::new(
-										self.rows[row_idx].captain == true,
-										format!("{}", &mut self.rows[row_idx].captain),
-									))
-									.clicked()
-								{
-									for row in &mut self.rows {
-										row.captain = false;
-									}
-
-									self.rows[row_idx].captain = true;
-								}
-							});
-							// Active checkbox.
-							row.col(|ui| {
-								ui.with_layout(Layout::top_down(Align::Center), |ui| {
-									ui.add(Checkbox::without_text(&mut self.rows[row_idx].active));
-								});
-							});
-							// Name.
-							row.col(|ui| {
-								if ui
-									.add(
-										TextEdit::singleline(&mut self.rows[row_idx].portrait_name)
-											.desired_width(f32::INFINITY),
-									)
-									.changed()
-								{
-									// Might do something in the future.
-								}
-							});
-						});
-					});
-			});
-	}
-
-	pub fn heading(&mut self, ui: &mut Ui) {
-		let mut margin = Self::INNER_MARGIN;
-		margin.bottom = 10;
-		egui::Frame::NONE.outer_margin(margin).show(ui, |ui| {
-			ui.with_layout(Layout::top_down(Align::Center), |ui| {
-				ui.label(RichText::new("Roster Editor").size(32.0));
-			});
-		});
-	}
-
-	pub fn menu(&mut self, ui: &mut Ui) {
-		egui::Frame::NONE
-			.inner_margin(Margin::symmetric(Self::INNER_MARGIN.left, 0))
-			.show(ui, |ui| {
-				ui.with_layout(Layout::top_down(Align::Center), |ui| {
-					StripBuilder::new(ui)
-						.size(Size::exact(45.0))
-						.size(Size::exact(180.0))
-						.size(Size::exact(60.0))
-						.size(Size::exact(60.0))
-						.cell_layout(Layout::left_to_right(Align::Center))
-						.horizontal(|mut strip| {
-							strip.cell(|ui| {
-								ui.label("Team:");
-							});
-
-							strip.cell(|ui| {
-								if ui
-									.add(
-										TextEdit::singleline(&mut self.team)
-											.desired_width(f32::INFINITY),
-									)
-									.changed()
-								{
-									// Might do something in the future.
-								}
-							});
-
-							strip.cell(|ui| {
-								if widget_creator::button(
-									ui,
-									"Import",
-									Layout::left_to_right(Align::Center),
-								)
-								.clicked()
-								{
-									if let Some(path) = FileDialog::new()
-										.set_title("Import MSRF roster file")
-										.add_filter("Mister Skeleton Roster Format", &["msrf"])
-										.add_filter("Tom's Obvious Minimal Language", &["toml"])
-										.pick_file()
-									{
-										match FormatType::from_extension(path.extension()) {
-											Some(FormatType::MSRF) => {
-												match RosterFile::get_rosterfile(path) {
-													Ok(roster_file) => {
-														match Roster::from_rosterfile(&roster_file)
-														{
-															Ok(roster) => {
-																let rows =
-																	RosterRow::from_roster(roster);
-																self.rows = rows;
-																self.team = roster_file.team;
-															}
-															Err(e) => Message::error_message(
-																"Import Error",
-																&e.to_string(),
-															),
-														};
-													}
-													Err(rosterfile_error) => {
-														Message::error_message(
-															"Import Error",
-															&rosterfile_error.to_string(),
-														);
-													}
-												}
-											}
-											Some(FormatType::TOML) => match Roster::from_toml(path)
-											{
-												Ok(roster) => {
-													let rows = RosterRow::from_roster(roster);
-													self.rows = rows;
-													self.team = "".to_string();
-												}
-												Err(roster_error) => {
-													Message::error_message(
-														"Import Error",
-														&roster_error.to_string(),
-													);
-												}
-											},
-											None => Message::error_message(
-												"Import Error",
-												"Failed to parse file extension",
-											),
-										}
-									}
-								}
-							});
-
-							strip.cell(|ui| {
-								if widget_creator::button(
-									ui,
-									"Export",
-									Layout::left_to_right(Align::Center),
-								)
-								.clicked()
-								{
-									if let Some(save_path) = FileDialog::new()
-										.set_title("Export roster file")
-										.set_file_name(slugify(&self.team))
-										.add_filter("Mister Skeleton Roster Format", &["msrf"])
-										.add_filter("Tom's Obvious Minimal Language", &["toml"])
-										.save_file()
-									{
-										match FormatType::from_extension(save_path.extension()) {
-											Some(format_type) => {
-												if let Err(e) = create_team_file(
-													&self.team,
-													RosterRow::to_roster(&self.rows),
-													&save_path.parent().unwrap(),
-													format_type,
-												) {
-													Message::error_message(
-														"Export Error",
-														&e.to_string(),
-													);
-												}
-											}
-											None => Message::error_message(
-												"Export Error",
-												"Failed to parse file extension",
-											),
-										}
-									}
-								}
-							});
-						});
+		let bold = |header| {
+			text(header)
+				.font(Font {
+					weight: font::Weight::Bold,
+					..Font::DEFAULT
 				})
-			});
+				.center()
+		};
+
+		let table_columns = [
+			table::column(bold("ID"), |row: &RosterRow| text(&row.id))
+				.align_x(Center)
+				.align_y(Center),
+			table::column(bold("Name"), |row: &RosterRow| {
+				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
+				text_input(
+					&format!("Ex: {}", Self::NAME_PLACEHOLDERS[current_row]),
+					&row.name,
+				)
+				.on_input(move |n| Message::NameChanged(n, current_row))
+			})
+			.width(TEXT_INPUT_WIDTH)
+			.align_x(Center)
+			.align_y(Center),
+			table::column(bold("Position"), |row: &RosterRow| {
+				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
+				combo_box(
+					&row.position.state,
+					"Position...",
+					row.position.selected.as_ref(),
+					move |p| Message::PositionChanged(p, current_row),
+				)
+			})
+			.width(COMBO_BOX_WIDTH)
+			.align_x(Center)
+			.align_y(Center),
+			table::column(bold("Medal"), |row: &RosterRow| {
+				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
+				combo_box(
+					&row.medal.state,
+					"Medal...",
+					row.medal.selected.as_ref(),
+					move |m| Message::MedalChanged(m, current_row),
+				)
+			})
+			.width(COMBO_BOX_WIDTH)
+			.align_x(Center)
+			.align_y(Center),
+			table::column(bold("Active"), |row: &RosterRow| {
+				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
+				toggler(row.active).on_toggle(move |c| Message::ActiveChanged(c, current_row))
+			})
+			.width(CHECKBOX_WIDTH)
+			.align_x(Center)
+			.align_y(Center),
+			table::column(bold("Captain"), |row: &RosterRow| {
+				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
+				radio("", current_row, self.captain, Message::CaptainChanged)
+			})
+			.width(RADIO_WIDTH)
+			.align_x(Center)
+			.align_y(Center),
+			table::column(bold("Portrait Name (optional)"), |row: &RosterRow| {
+				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
+				text_input(&format!("Ex: portrait{}", &row.id), &row.portrait_name)
+					.on_input(move |n| Message::PortraitNameChanged(n, current_row))
+			})
+			.width(TEXT_INPUT_WIDTH)
+			.align_x(Center)
+			.align_y(Center),
+		];
+
+		let table = table(table_columns, &self.rows).padding(MARGIN * 0.7);
+		let scrollable_table = scrollable(table).spacing(MARGIN);
+		column![menu, scrollable_table]
+			.align_x(Center)
+			.spacing(MARGIN * 2.0)
+			.into()
 	}
 }
 
 impl Default for RosterEditor {
 	fn default() -> Self {
 		let mut rows: [RosterRow; 23] = Default::default();
-		for x in 1..=23 {
-			rows[x - 1].id = x as u8;
+		for x in 0..23 {
+			rows[x].id = x as u8 + 1;
 		}
 
 		Self {
 			rows,
+			captain: None,
 			team: String::new(),
 		}
 	}
 }
 
-#[derive(Default, Ord, PartialOrd, PartialEq, Eq)]
-struct RosterRow {
-	id: u8,
-	name: String,
-	position: Position,
-	medal: Medal,
-	captain: bool,
-	active: bool,
-	portrait_name: String,
+pub struct ComboState<A> {
+	state: combo_box::State<A>,
+	selected: Option<A>,
+}
+
+impl<A: Clone + Default + Display + VariantArray> Default for ComboState<A> {
+	fn default() -> Self {
+		ComboState {
+			state: combo_box::State::new(A::VARIANTS.to_vec()),
+			selected: Some(A::default()),
+		}
+	}
+}
+
+impl<A: Clone + Display + VariantArray> ComboState<A> {
+	fn new(selected: Option<A>) -> Self {
+		ComboState {
+			state: combo_box::State::new(A::VARIANTS.to_vec()),
+			selected,
+		}
+	}
+
+	pub fn set(&mut self, new_select: A) {
+		self.selected = Some(new_select);
+	}
+}
+
+#[derive(Default)]
+pub struct RosterRow {
+	pub id: u8,
+	pub name: String,
+	pub position: ComboState<Position>,
+	pub medal: ComboState<Medal>,
+	pub active: bool,
+	pub portrait_name: String,
 }
 
 impl RosterRow {
-	fn from_player(player: lineupper::player::Player, active: bool) -> RosterRow {
+	fn from_player(player: Player) -> RosterRow {
 		RosterRow {
 			id: player.id,
 			name: player.name,
-			position: player.position,
-			medal: Medal::from_lineupper(player.medal),
-			captain: match player.captain {
-				Some(b) => b,
-				None => false,
-			},
-			active,
+			position: ComboState::new(Some(player.position)),
+			medal: ComboState::new(Some(player.medal.unwrap_or_default())),
+			active: player.active,
 			portrait_name: player.portrait_name.unwrap_or_default(),
 		}
 	}
 
-	fn from_roster(roster: Roster) -> [RosterRow; 23] {
+	pub fn from_roster(roster: Roster) -> ([RosterRow; 23], Option<usize>) {
+		let mut captain = None;
+		for p in roster.reserve.iter().chain(roster.active.iter()) {
+			if p.captain.is_some_and(|b| b) {
+				captain = Some(p.id as usize - 1);
+			}
+		}
+
 		// Convert all players to RosterRow, and move reserve and active into 1 vec.
-		let mut roster_active: Vec<RosterRow> = roster
+		let mut roster: Vec<RosterRow> = roster
 			.active
 			.into_iter()
-			.map(|p| RosterRow::from_player(p, true))
+			.chain(roster.reserve.into_iter())
+			.map(|p| RosterRow::from_player(p))
 			.collect();
-		let mut roster_reserve: Vec<RosterRow> = roster
-			.reserve
-			.into_iter()
-			.map(|p| RosterRow::from_player(p, false))
-			.collect();
-		roster_active.append(&mut roster_reserve);
 
 		// Sort them by the ID.
-		roster_active.sort_by(|a, b| a.id.cmp(&b.id));
-		roster_active
-			.try_into()
-			.unwrap_or_else(|v: Vec<RosterRow>| {
-				panic!("Expected Roster of 23 players, found {}", v.len())
-			})
+		roster.sort_by(|a, b| a.id.cmp(&b.id));
+		let roster = roster.try_into().unwrap_or_else(|v: Vec<RosterRow>| {
+			panic!("Expected Roster of 23 players, found {}", v.len())
+		});
+		(roster, captain)
 	}
 
-	fn to_roster(rows: &[RosterRow]) -> Roster {
+	pub fn to_roster(rows: &[RosterRow], captain: Option<usize>) -> Roster {
 		let player_states: Vec<_> = rows
 			.iter()
 			.map(|player| {
 				PlayerState::from(
-					player.captain,
 					player.id,
-					player.medal.to_lineupper(),
 					player.name.clone(),
-					player.position,
+					player.position.selected.unwrap_or_default(),
+					player.medal.selected,
 					player.active,
+					match captain {
+						Some(r) => r == player.id as usize - 1,
+						None => false,
+					},
 					match player.portrait_name.as_str() {
-					    "" => None,
-						_ => Some(player.portrait_name.clone())
+						"" => None,
+						_ => Some(player.portrait_name.clone()),
 					},
 				)
 			})
@@ -392,41 +263,5 @@ impl RosterRow {
 		}
 
 		Roster::from_players(active_players, reserve_players)
-	}
-}
-
-#[derive(Default, PartialEq, Ord, PartialOrd, Eq)]
-enum Medal {
-	#[default]
-	None,
-	Silver,
-	Gold,
-}
-
-impl Medal {
-	fn to_lineupper(&self) -> Option<lineupper::player::Medal> {
-		match self {
-			Medal::Silver => Some(lineupper::player::Medal::Silver),
-			Medal::Gold => Some(lineupper::player::Medal::Gold),
-			Medal::None => None,
-		}
-	}
-
-	fn from_lineupper(medal: Option<lineupper::player::Medal>) -> Medal {
-		match medal {
-			Some(lineupper::player::Medal::Silver) => Medal::Silver,
-			Some(lineupper::player::Medal::Gold) => Medal::Gold,
-			None => Medal::None,
-		}
-	}
-}
-
-impl From<&Medal> for WidgetText {
-	fn from(value: &Medal) -> Self {
-		match value {
-			Medal::None => "No medal".into(),
-			Medal::Silver => "Silver".into(),
-			Medal::Gold => "Gold".into(),
-		}
 	}
 }

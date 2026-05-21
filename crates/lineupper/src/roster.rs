@@ -73,10 +73,18 @@ impl Roster {
 	pub(crate) fn to_msrf_string(team: &str, roster: &Roster) -> String {
 		let mut roster: Vec<(String, u8)> = roster
 			.active
-			.iter().chain(roster.reserve.iter())
+			.iter()
+			.chain(roster.reserve.iter())
 			.map(|p| {
-				let ps =
-					PlayerState::from(p.captain.unwrap_or_default(), p.id, p.medal, p.name.clone(), p.position, p.active, p.portrait_name.clone());
+				let ps = PlayerState::from(
+					p.id,
+					p.name.clone(),
+					p.position,
+					p.medal,
+					p.active,
+					p.captain.unwrap_or_default(),
+					p.portrait_name.clone(),
+				);
 				(PlayerState::to_msrf_string(&ps), p.id)
 			})
 			.collect();

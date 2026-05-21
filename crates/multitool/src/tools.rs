@@ -1,122 +1,101 @@
-use core::fmt;
 use std::{ffi::OsStr, path::PathBuf};
 
-use eframe::egui::{self, Align, Color32, Layout, Margin, Response, Ui};
-use egui_extras::{Size, StripBuilder};
+use iced::{
+	font,
+	widget::{button, column, row, text},
+	Alignment::Center,
+	Element, Font,
+};
+use strum_macros::Display;
 
-use crate::{message::Message, widget_creator};
+use crate::{Message, MARGIN};
 
 #[derive(Default)]
 pub struct Tools {
-	lineupper_target_path: Option<PathBuf>,
-	statter_target_path: Option<PathBuf>,
+	pub lineupper_source: Option<PathBuf>,
+	pub lineupper_destination: Option<PathBuf>,
+	pub statter_source: Option<PathBuf>,
+	pub statter_destination: Option<PathBuf>,
 }
 
 impl Tools {
-	fn browse(&mut self, ui: &mut Ui, tool: &ToolItem) {
-		if widget_creator::button(ui, "Browse", Layout::left_to_right(Align::Center)).clicked() {
-			if let Some(path) = rfd::FileDialog::new().pick_folder() {
-				match tool {
-					ToolItem::LineUpper => self.lineupper_target_path = Some(path),
-					ToolItem::Statter => self.statter_target_path = Some(path),
-				}
-			}
-		}
+	pub fn tools(&self) -> Element<'_, Message> {
+		row![
+			self.tool_section(Tool::LineUpper),
+			self.tool_section(Tool::Statter)
+		]
+		.padding(MARGIN * 2.0)
+		.spacing(MARGIN * 24.0)
+		.into()
 	}
 
-	pub fn hstrip(&mut self, tool: ToolItem, ui: &mut Ui) -> Response {
-		StripBuilder::new(ui)
-			.size(Size::exact(65.0))
-			.size(Size::remainder().at_least(170.0))
-			.size(Size::exact(65.0))
-			.horizontal(|mut strip| {
-				strip.cell(|ui| {
-					self.browse(ui, &tool);
-				});
+	fn tool_section(&self, tool: Tool) -> Element<'_, Message> {
+		let folder_name = |path: Option<&PathBuf>| match path {
+			Some(path) => path
+				.file_name()
+				.unwrap_or(OsStr::new(".."))
+				.to_str()
+				.unwrap_or("Folder name unparsable")
+				.to_owned(),
+			None => "No folder targeted".to_owned(),
+		};
 
-				strip.cell(|ui| {
-					self.progress(ui, &tool);
-				});
+		let header = |header| {
+			text(header)
+				.font(Font {
+					weight: font::Weight::Bold,
+					..Font::DEFAULT
+				})
+				.size(24)
+				.center()
+		};
 
-				strip.cell(|ui| self.run(ui, &tool));
-			})
-	}
+		let (source_path, destination_path, header) = match tool {
+			Tool::LineUpper => (
+				self.lineupper_source.as_ref(),
+				self.lineupper_destination.as_ref(),
+				header("LineUpper"),
+			),
+			Tool::Statter => (
+				self.statter_source.as_ref(),
+				self.statter_destination.as_ref(),
+				header("Statter"),
+			),
+		};
 
-	// FIXME: Currently nothing is async, so progress won't be shown. Ironically.
-	fn progress(&mut self, ui: &mut Ui, tool: &ToolItem) {
-		egui::Frame::NONE
-			.fill(Color32::LIGHT_GRAY)
-			.inner_margin(Margin::same(4))
-			.show(ui, |ui| {
-				ui.with_layout(
-					Layout::left_to_right(egui::Align::Min)
-						.with_main_align(egui::Align::Center)
-						.with_main_justify(true),
-					|ui| {
-						let path = match tool {
-							ToolItem::LineUpper => &self.lineupper_target_path,
-							ToolItem::Statter => &self.statter_target_path,
-						};
+		let browse_source = row![
+			button("Source...").on_press(Message::BrowseSource(tool)),
+			text(folder_name(source_path))
+		]
+		.spacing(MARGIN * 2.0)
+		.align_y(Center);
 
-						let folder = match &path {
-							Some(path) => path
-								.file_name()
-								.unwrap_or(OsStr::new(".."))
-								.to_str()
-								.unwrap_or("Folder name unparsable"),
-							None => "No folder targeted",
-						};
+		let browse_destination = row![
+			button("Destination...").on_press(Message::BrowseDestination(tool)),
+			text(folder_name(destination_path))
+		]
+		.spacing(MARGIN * 2.0)
+		.align_y(Center);
 
-						ui.colored_label(Color32::BLACK, format!("{} ({folder})", tool));
-					},
-				);
-			});
-	}
-
-	fn run(&mut self, ui: &mut Ui, tool: &ToolItem) {
-		if widget_creator::button(ui, "Run", Layout::left_to_right(Align::Center)).clicked() {
-			let path = match tool {
-				&ToolItem::LineUpper if self.lineupper_target_path.is_some() => {
-					self.lineupper_target_path.as_ref().unwrap()
-				}
-				&ToolItem::Statter if self.statter_target_path.is_some() => {
-					self.statter_target_path.as_ref().unwrap()
-				}
-				_ => {
-					Message::error_message("Run Error", "No folder was targeted.");
-					return;
-				}
-			};
-
-			if let Some(output_path) = rfd::FileDialog::new()
-				.set_title("Choose location to save output")
-				.pick_folder()
-			{
-				let error;
-				match tool {
-					&ToolItem::LineUpper => {
-						error = lineupper::create::create_team_and_portraits(path, &output_path)
-					}
-					&ToolItem::Statter => {
-						error = statter::entry::run_tournaments(path, &output_path)
-					}
-				}
-				if let Err(e) = error {
-					Message::error_message("Run Error", &e.to_string());
-				}
-			}
-		}
+		column![
+			header.align_y(Center),
+			browse_source,
+			browse_destination,
+			if source_path.is_some() && destination_path.is_some() {
+				button("Run!")
+					.style(button::success)
+					.on_press(Message::Run(tool))
+			} else {
+				button("Run").style(button::success)
+			},
+		]
+		.spacing(MARGIN * 2.0)
+		.into()
 	}
 }
 
-#[derive(Debug, PartialEq)]
-pub enum ToolItem {
+#[derive(Clone, Copy, Display)]
+pub enum Tool {
 	LineUpper,
 	Statter,
-}
-
-impl fmt::Display for ToolItem {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{:?}", self)
-	}
 }

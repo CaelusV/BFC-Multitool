@@ -3,8 +3,11 @@ use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, VariantArray};
 use thiserror::Error;
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Display, VariantArray)]
 pub enum Medal {
+	#[serde(skip_serializing)]
+	#[default]
+	None,
 	Silver,
 	Gold,
 }
@@ -21,7 +24,6 @@ pub(crate) enum PlayerError {
 	NotAPlayer,
 }
 
-#[derive(PartialEq)]
 pub enum PlayerState {
 	Active(Player),
 	Reserve(Player),
@@ -29,12 +31,12 @@ pub enum PlayerState {
 
 impl PlayerState {
 	pub fn from(
-		captain: bool,
 		id: u8,
-		medal: Option<Medal>,
 		name: String,
 		position: Position,
+		medal: Option<Medal>,
 		active: bool,
+		captain: bool,
 		portrait_name: Option<String>,
 	) -> Self {
 		let captain = match captain {
@@ -43,7 +45,7 @@ impl PlayerState {
 		};
 
 		let player = Player {
-		    active,
+			active,
 			captain,
 			id,
 			medal,
@@ -131,7 +133,7 @@ impl PlayerState {
 		}
 
 		let player = Player {
-		    active: active,
+			active,
 			captain,
 			id,
 			medal,
@@ -150,12 +152,8 @@ impl PlayerState {
 
 	pub(crate) fn to_msrf_string(&self) -> String {
 		let (active, player) = match self {
-			PlayerState::Active(p) => {
-				(true, p)
-			}
-			PlayerState::Reserve(p) => {
-				(false, p)
-			}
+			PlayerState::Active(p) => (true, p),
+			PlayerState::Reserve(p) => (false, p),
 		};
 
 		let mut tags = String::from(" ");
@@ -188,16 +186,16 @@ impl PlayerState {
 	}
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize)]
 pub struct Player {
-    #[serde(skip)]
-    pub active: bool,
-	pub captain: Option<bool>,
 	pub id: u8,
-	pub medal: Option<Medal>,
 	pub name: String,
-	pub portrait_name: Option<String>,
 	pub position: Position,
+	pub medal: Option<Medal>,
+	pub captain: Option<bool>,
+	#[serde(skip)]
+	pub active: bool,
+	pub portrait_name: Option<String>,
 }
 
 impl Player {}

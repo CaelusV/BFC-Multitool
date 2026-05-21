@@ -27,8 +27,8 @@ impl FormatType {
 	}
 }
 
-pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> {
-	let rosterfiles = RosterFile::get_rosterfiles(folder)?;
+pub fn create_team_and_portraits(source: &PathBuf, destination: &PathBuf) -> Result<()> {
+	let rosterfiles = RosterFile::get_rosterfiles(source)?;
 	if rosterfiles.is_empty() {
 		return Err(anyhow!("No roster files found."));
 	}
@@ -36,8 +36,8 @@ pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> R
 	for roster_file in rosterfiles {
 		let roster = Roster::from_rosterfile(&roster_file)?;
 
-		convert_portraits(&roster_file.team, &roster, folder, &output_folder)?;
-		create_team_file(&roster_file.team, roster, &output_folder, FormatType::TOML)?;
+		convert_portraits(&roster_file.team, &roster, source, destination)?;
+		create_team_file(&roster_file.team, roster, destination, FormatType::TOML)?;
 	}
 	Ok(())
 }
@@ -45,7 +45,7 @@ pub fn create_team_and_portraits(folder: &PathBuf, output_folder: &PathBuf) -> R
 pub fn create_team_file(
 	team: &str,
 	mut roster: Roster,
-	output_folder: &Path,
+	destination_folder: &Path,
 	format_type: FormatType,
 ) -> Result<()> {
 	if roster.player_count() < 23 {
@@ -68,24 +68,19 @@ pub fn create_team_file(
 		}
 	};
 
-	if !output_folder.is_dir() {
-		if let Err(e) = fs::create_dir_all(&output_folder) {
-			return Err(anyhow!("Failed to create output folder: {e}"));
+	if !destination_folder.is_dir() {
+		if let Err(e) = fs::create_dir_all(destination_folder) {
+			return Err(anyhow!("Failed to create destination folder: {e}"));
 		}
 	}
 
-	fs::write(output_folder.join(slugify(team) + extension), file)?;
+	fs::write(destination_folder.join(slugify(team) + extension), file)?;
 	Ok(())
 }
 
-fn convert_portraits(
-	team: &str,
-	roster: &Roster,
-	folder: &Path,
-	output_folder: &Path,
-) -> Result<()> {
+fn convert_portraits(team: &str, roster: &Roster, source: &Path, destination: &Path) -> Result<()> {
 	let dds_relative_name = format!("{}_dds", slugify(team));
-	let dds_folder = folder.join(&dds_relative_name);
+	let dds_folder = source.join(&dds_relative_name);
 	if !dds_folder.is_dir() {
 		return Err(anyhow!(
 			"Can't rename portraits because the dds folder '{}' doesn't exist.",
@@ -93,8 +88,8 @@ fn convert_portraits(
 		));
 	}
 
-	if !output_folder.is_dir() {
-		if let Err(e) = fs::create_dir_all(&output_folder) {
+	if !destination.is_dir() {
+		if let Err(e) = fs::create_dir_all(destination) {
 			return Err(anyhow!("Failed to create portrait folder: {e}"));
 		}
 	}
@@ -103,7 +98,7 @@ fn convert_portraits(
 		// Convert .dds (e.g. "player_XXX03.dds") to .png (e.g. "example-name.png").
 		// Converted portraits are placed in a separate folder.
 		let default_name = format!("player_XXX{:02}", player.id);
-		let dds_path = folder.join(&dds_folder).join(format!("{default_name}.dds"));
+		let dds_path = source.join(&dds_folder).join(format!("{default_name}.dds"));
 
 		if !dds_path.is_file() {
 			eprintln!(
@@ -114,16 +109,18 @@ fn convert_portraits(
 		}
 
 		// Convert portraits.
-		let team_output_folder = output_folder.join(slugify(team));
+		let team_destination_folder = destination.join(slugify(team));
 		let png_path = if let Some(s) = &player.portrait_name {
-			team_output_folder.join(format!("{}.png", s))
+			team_destination_folder.join(format!("{}.png", s))
 		} else {
-			team_output_folder.join(default_name + ".png")
+			team_destination_folder.join(default_name + ".png")
 		};
 
-		if !team_output_folder.is_dir() {
-			if let Err(e) = fs::create_dir(team_output_folder) {
-				return Err(anyhow!("Failed to create output folder for {team}: {e}"));
+		if !team_destination_folder.is_dir() {
+			if let Err(e) = fs::create_dir(team_destination_folder) {
+				return Err(anyhow!(
+					"Failed to create destination folder for {team}: {e}"
+				));
 			}
 		}
 

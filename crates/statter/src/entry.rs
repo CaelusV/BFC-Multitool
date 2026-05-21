@@ -9,8 +9,8 @@ use crate::rankings::Seasons;
 use crate::team::{Team, TeamName};
 use crate::tournament::{Participation, Tournament, TournamentResult};
 
-pub fn run_tournaments(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> {
-	let cup_paths = get_cup_paths(folder)?;
+pub fn run_tournaments(source: &PathBuf, destination: &PathBuf) -> Result<()> {
+	let cup_paths = get_cup_paths(source)?;
 	if cup_paths.is_empty() {
 		return Err(anyhow!("Error: No tournament files have been found."));
 	}
@@ -53,8 +53,8 @@ pub fn run_tournaments(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> 
 	}
 
 	// Generate the stats folder.
-	if !output_folder.is_dir() {
-		fs::create_dir(&output_folder)?;
+	if !destination.is_dir() {
+		fs::create_dir(&destination)?;
 	}
 
 	// Generate tournament results.
@@ -72,7 +72,7 @@ pub fn run_tournaments(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> 
 				tp.team.reset_greatest();
 			});
 		let tournament_results_toml = toml::to_string(&tournament_results)?;
-		let tournament_results_path = output_folder.join(format!(
+		let tournament_results_path = destination.join(format!(
 			"{}-results.toml",
 			tournament_results
 				.tournament_name
@@ -87,7 +87,7 @@ pub fn run_tournaments(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> 
 	// Generate SeasonRankings. NOTE: TournamentResults are already sorted by date.
 	let seasons = Seasons::from(all_tournament_results);
 	let rankings_toml = toml::to_string(&seasons)?;
-	let rankings_path = output_folder.join("rankings.toml");
+	let rankings_path = destination.join("rankings.toml");
 	fs::write(rankings_path, rankings_toml)?;
 
 	// Generate team stats.
@@ -100,16 +100,16 @@ pub fn run_tournaments(folder: &PathBuf, output_folder: &PathBuf) -> Result<()> 
 			))?
 			.sort_unstable_by_key(|p| p.date);
 		let team_toml = toml::to_string(&team)?;
-		let team_path = output_folder.join(team.filename());
+		let team_path = destination.join(team.filename());
 		fs::write(team_path, team_toml)?;
 	}
 
 	Ok(())
 }
 
-fn get_cup_paths(folder: &PathBuf) -> Result<Vec<PathBuf>> {
+fn get_cup_paths(source: &PathBuf) -> Result<Vec<PathBuf>> {
 	let mut cup_file_paths = Vec::new();
-	let entries = fs::read_dir(folder)?;
+	let entries = fs::read_dir(source)?;
 
 	let extension = Some(OsStr::new("toml"));
 	for entry in entries {
@@ -123,7 +123,7 @@ fn get_cup_paths(folder: &PathBuf) -> Result<Vec<PathBuf>> {
 		} else {
 			return Err(anyhow!(
 				"Failed to read file in: {}.",
-				folder.to_string_lossy()
+				source.to_string_lossy()
 			));
 		}
 	}
