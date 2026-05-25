@@ -1,10 +1,10 @@
 use std::fmt::Display;
 
 use iced::{
-	font, Function,
+	font,
 	widget::{button, column, combo_box, radio, row, scrollable, table, text, text_input, toggler},
 	Alignment::Center,
-	Element, Font,
+	Element, Font, Function,
 };
 use strum::VariantArray;
 
@@ -114,7 +114,12 @@ impl RosterEditor {
 			.align_x(Center)
 			.align_y(Center),
 			table::column(bold("Captain"), |row: &RosterRow| {
-				radio("", row.id as usize - 1, self.captain, Message::CaptainChanged)
+				radio(
+					"",
+					row.id as usize - 1,
+					self.captain,
+					Message::CaptainChanged,
+				)
 			})
 			.width(RADIO_WIDTH)
 			.align_x(Center)

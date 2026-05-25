@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, VariantArray};
-use thiserror::Error;
+
+use common::errors::{PlayerError, ToolError};
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Display, VariantArray)]
 pub enum Medal {
@@ -10,18 +10,6 @@ pub enum Medal {
 	None,
 	Silver,
 	Gold,
-}
-
-#[derive(Error, Debug, PartialEq)]
-pub(crate) enum PlayerError {
-	#[error("'{0}' is an invalid portrait name.")]
-	InvalidPortraitName(String),
-	#[error("'{0}' has an invalid ID.")]
-	InvalidID(String),
-	#[error("'{0}' is missing one or more player attributes.")]
-	MissingAttributes(String),
-	#[error("String isn't a player.")]
-	NotAPlayer,
 }
 
 pub enum PlayerState {
@@ -61,7 +49,7 @@ impl PlayerState {
 		}
 	}
 
-	pub(crate) fn from_string(s: String) -> Result<PlayerState> {
+	pub(crate) fn from_string(s: String) -> Result<PlayerState, ToolError> {
 		let parts = s.trim().split("+++").collect::<Vec<_>>();
 		if parts.len() < 3 {
 			match parts[0].to_ascii_lowercase().starts_with("xxx") {
@@ -79,7 +67,7 @@ impl PlayerState {
 			};
 
 		let position = Position::try_from(parts[2].trim())
-			.map_err(|_| anyhow!("'{}' is not a player position.", parts[2].trim()))?;
+			.map_err(|_| PlayerError::NotAPosition(parts[2].trim().to_string()))?;
 
 		let mut name = parts[1].to_string();
 

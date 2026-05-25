@@ -1,7 +1,10 @@
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{fixture::GreatestFixture, tournament::Participation};
+use common::{
+	errors::{TeamError, ToolError},
+	TeamName,
+};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MatchupHistory {
@@ -41,11 +44,9 @@ impl MatchupHistory {
 		}
 	}
 
-	pub fn add(&mut self, other: &Self) -> Result<()> {
+	pub fn add(&mut self, other: &Self) -> Result<(), ToolError> {
 		if self.opponent_name != other.opponent_name {
-			return Err(anyhow!(
-				"Can't add 'MatchupHistory's with different names together"
-			));
+			return Err(TeamError::MatchupsNameMismatch.into());
 		}
 
 		self.goals_against += other.goals_against;
@@ -98,9 +99,9 @@ impl Team {
 		}
 	}
 
-	pub fn add(&mut self, other: &mut Self) -> Result<()> {
+	pub fn add(&mut self, other: &mut Self) -> Result<(), ToolError> {
 		if self.name != other.name {
-			return Err(anyhow!("DEV_ERR: Can't add stats from a different team."));
+			return Err(TeamError::TeamAdditionMismatch.into());
 		}
 
 		self.goals_against += other.goals_against;
@@ -161,7 +162,11 @@ impl Team {
 		self.greatest_loss = None;
 	}
 
-	fn try_add_greatest(&mut self, g_fixture: &GreatestFixture, win: bool) -> Result<bool> {
+	fn try_add_greatest(
+		&mut self,
+		g_fixture: &GreatestFixture,
+		win: bool,
+	) -> Result<bool, ToolError> {
 		// Make sure the team has played this fixture.
 		if g_fixture.fixture.team1 != self.name && g_fixture.fixture.team2 != self.name {
 			return Ok(false);
@@ -235,58 +240,13 @@ impl Team {
 		Ok(is_greatest)
 	}
 
-	pub fn try_add_greatest_loss(&mut self, other: &GreatestFixture) -> Result<bool> {
+	pub fn try_add_greatest_loss(&mut self, other: &GreatestFixture) -> Result<bool, ToolError> {
 		self.try_add_greatest(other, false)
 	}
 
-	pub fn try_add_greatest_win(&mut self, other: &GreatestFixture) -> Result<bool> {
+	pub fn try_add_greatest_win(&mut self, other: &GreatestFixture) -> Result<bool, ToolError> {
 		self.try_add_greatest(other, true)
 	}
-}
-
-#[derive(
-	Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, strum_macros::Display,
-)]
-pub enum TeamName {
-	Unknown,
-	#[serde(rename = "Alpha Space Bros")]
-	#[strum(to_string = "Alpha Space Bros")]
-	AlphaSpaceBros,
-	Autoism,
-	#[serde(rename = "Big Funky")]
-	#[strum(to_string = "Big Funky")]
-	BigFunky,
-	#[serde(rename = "Bone Zone")]
-	#[strum(to_string = "Bone Zone")]
-	BoneZone,
-	#[serde(rename = "Cartoons FC")]
-	#[strum(to_string = "Cartoons FC")]
-	CartoonsFC,
-	Cursed,
-	Disney,
-	#[serde(rename = "FC Fine Dining")]
-	#[strum(to_string = "FC Fine Dining")]
-	FCFineDining,
-	#[serde(rename = "FC PC")]
-	#[strum(to_string = "FC PC")]
-	FCPC,
-	#[serde(rename = "Fink Ployd")]
-	#[strum(to_string = "Fink Ployd")]
-	FinkPloyd,
-	Gambit,
-	#[serde(rename = "HmX Gaming")]
-	#[strum(to_string = "HmX Gaming")]
-	HmXGaming,
-	Legoland,
-	Moai,
-	Nintendont,
-	#[serde(rename = "The Chairs")]
-	#[strum(to_string = "The Chairs")]
-	TheChairs,
-	#[serde(rename = "The Dump")]
-	#[strum(to_string = "The Dump")]
-	TheDump,
-	Vidya,
 }
 
 #[derive(Clone, Debug, Serialize)]

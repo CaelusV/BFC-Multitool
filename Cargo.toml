@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/lineupper",
     "crates/multitool",
+    "crates/common",
     "crates/statter"
 ]
 
@@ -13,7 +14,8 @@ license = "MIT"
 version = "1.1.0"
 
 [workspace.dependencies]
-anyhow = "1.0"
+common = { path = "crates/common" }
+iced = { version = "0.14", features = ["image", "tokio", "sipper"] }
 image = "0.25"
 lineupper = { path = "crates/lineupper" }
 multitool = { path = "crates/multitool" }
@@ -22,6 +24,7 @@ statter = { path = "crates/statter" }
 strum = "0.28"
 strum_macros = "0.28"
 thiserror = "2.0"
+tokio = { version = "1.52", features = ["fs", "io-util"] }
 toml = "1.1"
 
 [profile.release]

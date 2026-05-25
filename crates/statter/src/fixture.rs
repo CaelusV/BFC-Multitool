@@ -1,8 +1,10 @@
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
-use crate::{team::TeamName, tournament::GroupID};
+use crate::tournament::GroupID;
+use common::{
+	errors::{FixtureError, ToolError},
+	TeamName,
+};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Fixture {
@@ -17,7 +19,7 @@ pub struct Fixture {
 }
 
 impl Fixture {
-	pub fn loser(&self) -> Result<Option<TeamName>> {
+	pub fn loser(&self) -> Result<Option<TeamName>, ToolError> {
 		match self.winner() {
 			Ok(Some(t)) if t == self.team1 => Ok(Some(self.team2)),
 			Ok(Some(t)) if t == self.team2 => Ok(Some(self.team1)),
@@ -25,7 +27,7 @@ impl Fixture {
 		}
 	}
 
-	pub fn winner(&self) -> Result<Option<TeamName>> {
+	pub fn winner(&self) -> Result<Option<TeamName>, ToolError> {
 		match (self.pen1, self.pen2) {
 			(None, Some(pen_goals)) => {
 				return Err(FixtureError::MissingPenalties1(
@@ -70,16 +72,6 @@ impl Fixture {
 
 		Ok(winner)
 	}
-}
-
-#[derive(Error, Debug)]
-pub enum FixtureError {
-	#[error("{0} vs {1}: Couldn't determine a winner, because pen1 and pen2 are equal.")]
-	InvalidPenalties(String, String),
-	#[error("{0} vs {1}: Expected pen1, found pen2 = {2}.")]
-	MissingPenalties1(String, String, u8),
-	#[error("{0} vs {1}: Expected pen2, found pen1 = {2}.")]
-	MissingPenalties2(String, String, u8),
 }
 
 #[derive(Serialize, Clone, Debug)]
