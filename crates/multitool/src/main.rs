@@ -4,11 +4,12 @@ use iced::{
 	widget::{button, column, container},
 	window::Settings,
 	Alignment::{Center, Start},
-	Element,
+	Element, Function,
 	Length::Fill,
 	Task,
 };
 use rfd::FileDialog;
+use tokio::runtime::Runtime;
 
 use lineupper::{
 	create::{create_team_file, FormatType},
@@ -60,11 +61,12 @@ enum Page {
 	Tools,
 }
 
-#[derive(Default)]
 struct Application {
 	roster_editor: RosterEditor,
 	tools: Tools,
 	page: Page,
+	// Just so I can block on some async functions.
+	runtime: Runtime,
 }
 
 impl Application {
@@ -119,28 +121,30 @@ impl Application {
 					.pick_file()
 				{
 					match FormatType::from_extension(path.extension()) {
-						Some(FormatType::MSRF) => match RosterFile::get_rosterfile(path) {
-							Ok(roster_file) => {
-								match Roster::from_rosterfile(&roster_file) {
-									Ok(roster) => {
-										let (rows, captain) = RosterRow::from_roster(roster);
-										self.roster_editor.rows = rows;
-										self.roster_editor.captain = captain;
-										self.roster_editor.team = roster_file.team;
-									}
-									Err(e) => {
-										Messenger::error_message("Import Error", &e.to_string())
-									}
-								};
+						Some(FormatType::MSRF) => {
+							match self.runtime.block_on(RosterFile::get_rosterfile(path)) {
+								Ok(roster_file) => {
+									match self.runtime.block_on(Roster::from_rosterfile(&roster_file)) {
+										Ok(roster) => {
+											let (rows, captain) = RosterRow::from_roster(roster);
+											self.roster_editor.rows = rows;
+											self.roster_editor.captain = captain;
+											self.roster_editor.team = roster_file.team;
+										}
+										Err(e) => {
+											Messenger::error_message("Import Error", &e.to_string())
+										}
+									};
+								}
+								Err(rosterfile_error) => {
+									Messenger::error_message(
+										"Import Error",
+										&rosterfile_error.to_string(),
+									);
+								}
 							}
-							Err(rosterfile_error) => {
-								Messenger::error_message(
-									"Import Error",
-									&rosterfile_error.to_string(),
-								);
-							}
-						},
-						Some(FormatType::TOML) => match Roster::from_toml(path) {
+						}
+						Some(FormatType::TOML) => match self.runtime.block_on(Roster::from_toml(path)) {
 							Ok(roster) => {
 								let (rows, captain) = RosterRow::from_roster(roster);
 								self.roster_editor.rows = rows;
@@ -169,7 +173,7 @@ impl Application {
 				{
 					match FormatType::from_extension(save_path.extension()) {
 						Some(format_type) => {
-							if let Err(e) = create_team_file(
+							if let Err(e) = self.runtime.block_on(create_team_file(
 								&self.roster_editor.team,
 								RosterRow::to_roster(
 									&self.roster_editor.rows,
@@ -177,7 +181,7 @@ impl Application {
 								),
 								&save_path.parent().unwrap(),
 								format_type,
-							) {
+							)) {
 								Messenger::error_message("Export Error", &e.to_string());
 							}
 						}
@@ -192,8 +196,8 @@ impl Application {
 			Message::BrowseSource(tool) => {
 				if let Some(path) = rfd::FileDialog::new().pick_folder() {
 					match tool {
-						Tool::LineUpper => self.tools.lineupper_source = Some(path),
-						Tool::Statter => self.tools.statter_source = Some(path),
+						Tool::LineUpper => self.tools.lineupper.source = Some(path),
+						Tool::Statter => self.tools.statter.source = Some(path),
 					}
 				}
 				Task::none()
@@ -201,44 +205,56 @@ impl Application {
 			Message::BrowseDestination(tool) => {
 				if let Some(path) = rfd::FileDialog::new().pick_folder() {
 					match tool {
-						Tool::LineUpper => self.tools.lineupper_destination = Some(path),
-						Tool::Statter => self.tools.statter_destination = Some(path),
+						Tool::LineUpper => self.tools.lineupper.destination = Some(path),
+						Tool::Statter => self.tools.statter.destination = Some(path),
 					}
 				}
 				Task::none()
 			}
-			Message::Run(tool) => {
+			Message::RunTool(tool) => {
 				let (source, destination) = match tool {
 					Tool::LineUpper => (
-						self.tools.lineupper_source.as_ref(),
-						self.tools.lineupper_destination.as_ref(),
+						self.tools.lineupper.source.as_ref(),
+						self.tools.lineupper.destination.as_ref(),
 					),
 					Tool::Statter => (
-						self.tools.statter_source.as_ref(),
-						self.tools.statter_destination.as_ref(),
+						self.tools.statter.source.as_ref(),
+						self.tools.statter.destination.as_ref(),
 					),
 				};
 
-				if let (Some(source), Some(destination)) = (source, destination) {
-					let error = match tool {
-						Tool::LineUpper => {
-							lineupper::create::create_team_and_portraits(source, destination)
-						}
-						Tool::Statter => {
-							statter::entry::run_tournaments(source, destination)
-						}
-					};
-					if let Err(e) = error {
-						Messenger::error_message("Run Error", &e.to_string());
-					}
+				let task = if let (Some(source), Some(destination)) = (source, destination) {
+					self.tools.start(tool, source.clone(), destination.clone())
 				} else {
 					Messenger::info_message(
 						"Run Error",
 						"A source or destination folder wasn't selected.",
 					);
-				}
-				Task::none()
+					return Task::none();
+				};
+				task.map(Message::UpdateTool.with(tool))
+
+				// if let (Some(source), Some(destination)) = (source, destination) {
+				// 	let error = match tool {
+				// 		Tool::LineUpper => {
+				// 			lineupper::create::create_team_and_portraits(source, destination)
+				// 		}
+				// 		Tool::Statter => {
+				// 			statter::entry::run_tournaments(source, destination)
+				// 		}
+				// 	};
+				// 	if let Err(e) = error {
+				// 		Messenger::error_message("Run Error", &e.to_string());
+				// 	}
+				// } else {
+				// 	Messenger::info_message(
+				// 		"Run Error",
+				// 		"A source or destination folder wasn't selected.",
+				// 	);
+				// }
 			}
+
+			Message::UpdateTool(tool, update) => Task::none(),
 		}
 	}
 
@@ -271,5 +287,16 @@ impl Application {
 		.into();
 
 		container(content).padding(MARGIN * 2.0).into()
+	}
+}
+
+impl Default for Application {
+	fn default() -> Self {
+		Application {
+			roster_editor: RosterEditor::default(),
+			tools: Tools::default(),
+			page: Page::default(),
+			runtime: Runtime::new().unwrap(),
+		}
 	}
 }

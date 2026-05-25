@@ -1,7 +1,8 @@
 use serde::Serialize;
 use toml::value::Datetime;
 
-use crate::{team::TeamName, tournament::TournamentResult};
+use crate::tournament::TournamentResult;
+use common::TeamName;
 
 #[derive(Serialize)]
 pub struct RankedTeam {

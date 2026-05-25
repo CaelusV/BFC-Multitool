@@ -1,0 +1,12 @@
+[package]
+name = "common"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+image.workspace = true
+serde.workspace = true
+strum_macros.workspace = true
+thiserror.workspace = true
+toml.workspace = true

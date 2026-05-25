@@ -1,11 +1,16 @@
 use std::{
 	ffi::OsStr,
-	fs,
 	path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use iced::task::{sipper, Straw};
 use image::ImageReader;
+use tokio::fs;
+
+use common::{
+	errors::{CreationError, ToolError},
+	Progress,
+};
 
 use crate::{
 	roster::{Roster, RosterFile},
@@ -27,27 +32,42 @@ impl FormatType {
 	}
 }
 
-pub fn create_team_and_portraits(source: &PathBuf, destination: &PathBuf) -> Result<()> {
-	let rosterfiles = RosterFile::get_rosterfiles(source)?;
-	if rosterfiles.is_empty() {
-		return Err(anyhow!("No roster files found."));
-	}
+pub fn create_team_and_portraits(
+	source: PathBuf,
+	destination: PathBuf,
+) -> impl Straw<(), Progress, ToolError> {
+	sipper(async move |mut progress| {
+		let _ = progress.send(Progress { percent: 0.0 }).await;
 
-	for roster_file in rosterfiles {
-		let roster = Roster::from_rosterfile(&roster_file)?;
+		let rosterfiles = RosterFile::get_rosterfiles(&source).await?;
+		if rosterfiles.is_empty() {
+			return Err(CreationError::NoRosterFiles.into());
+		}
 
-		convert_portraits(&roster_file.team, &roster, source, destination)?;
-		create_team_file(&roster_file.team, roster, destination, FormatType::TOML)?;
-	}
-	Ok(())
+		// I guess getting the files count as 5%.
+		let fraction_per_file = 95.0 / rosterfiles.len() as f32;
+		for (index, roster_file) in rosterfiles.iter().enumerate() {
+			let _ = progress
+				.send(Progress {
+					percent: 5.0 + fraction_per_file * index as f32,
+				})
+				.await;
+
+			let roster = Roster::from_rosterfile(&roster_file).await?;
+			convert_portraits(&roster_file.team, &roster, &source, &destination).await?;
+			create_team_file(&roster_file.team, roster, &destination, FormatType::TOML).await?;
+		}
+		let _ = progress.send(Progress { percent: 100.0 }).await;
+		Ok(())
+	})
 }
 
-pub fn create_team_file(
+pub async fn create_team_file(
 	team: &str,
 	mut roster: Roster,
 	destination_folder: &Path,
 	format_type: FormatType,
-) -> Result<()> {
+) -> Result<(), ToolError> {
 	if roster.player_count() < 23 {
 		eprintln!(
 			"ATTENTION: Creating '{}' team file with fewer than 23 players.",
@@ -55,42 +75,49 @@ pub fn create_team_file(
 		)
 	}
 
-	let extension;
-	let file = match format_type {
+	let (file, extension) = match format_type {
 		FormatType::TOML => {
 			roster.sort();
-			extension = ".toml";
-			toml::to_string(&roster)?
+			(toml::to_string(&roster)?, ".toml")
 		}
-		FormatType::MSRF => {
-			extension = ".msrf";
-			Roster::to_msrf_string(team, &roster)
-		}
+		FormatType::MSRF => (Roster::to_msrf_string(team, &roster), ".msrf"),
 	};
 
 	if !destination_folder.is_dir() {
-		if let Err(e) = fs::create_dir_all(destination_folder) {
-			return Err(anyhow!("Failed to create destination folder: {e}"));
+		if let Err(e) = fs::create_dir_all(destination_folder).await {
+			return Err(CreationError::CouldNotCreateFolder(format!(
+				"Failed to create destination folder: {e}"
+			))
+			.into());
 		}
 	}
 
-	fs::write(destination_folder.join(slugify(team) + extension), file)?;
+	fs::write(destination_folder.join(slugify(team) + extension), file).await?;
 	Ok(())
 }
 
-fn convert_portraits(team: &str, roster: &Roster, source: &Path, destination: &Path) -> Result<()> {
+async fn convert_portraits(
+	team: &str,
+	roster: &Roster,
+	source: &Path,
+	destination: &Path,
+) -> Result<(), ToolError> {
 	let dds_relative_name = format!("{}_dds", slugify(team));
 	let dds_folder = source.join(&dds_relative_name);
 	if !dds_folder.is_dir() {
-		return Err(anyhow!(
+		return Err(CreationError::CouldNotCreateFolder(format!(
 			"Can't rename portraits because the dds folder '{}' doesn't exist.",
 			dds_folder.to_string_lossy()
-		));
+		))
+		.into());
 	}
 
 	if !destination.is_dir() {
-		if let Err(e) = fs::create_dir_all(destination) {
-			return Err(anyhow!("Failed to create portrait folder: {e}"));
+		if let Err(e) = fs::create_dir_all(destination).await {
+			return Err(CreationError::CouldNotCreateFolder(format!(
+				"Failed to create portrait folder: {e}"
+			))
+			.into());
 		}
 	}
 
@@ -117,10 +144,11 @@ fn convert_portraits(team: &str, roster: &Roster, source: &Path, destination: &P
 		};
 
 		if !team_destination_folder.is_dir() {
-			if let Err(e) = fs::create_dir(team_destination_folder) {
-				return Err(anyhow!(
+			if let Err(e) = fs::create_dir(team_destination_folder).await {
+				return Err(CreationError::CouldNotCreateFolder(format!(
 					"Failed to create destination folder for {team}: {e}"
-				));
+				))
+				.into());
 			}
 		}
 

@@ -1,14 +1,13 @@
-use std::{
-	ffi::OsString,
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use tokio::{
 	fs::{self, File},
-	io::{BufRead, BufReader},
-	path::{Path, PathBuf},
+	io::{AsyncBufReadExt, BufReader},
 };
 
-use crate::player::{Player, PlayerError, PlayerState};
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use crate::player::{Player, PlayerState};
+use common::errors::{PlayerError, RosterFileError, ToolError};
 
 #[derive(Serialize, Deserialize)]
 pub struct Roster {
@@ -17,26 +16,28 @@ pub struct Roster {
 }
 
 impl Roster {
-	pub fn from_rosterfile(roster_file: &RosterFile) -> Result<Self> {
-		let file = File::open(&roster_file.path)?;
+	pub async fn from_rosterfile(roster_file: &RosterFile) -> Result<Self, ToolError> {
+		let file = File::open(&roster_file.path).await?;
 		let reader = BufReader::new(file);
 		let mut active_players = Vec::new();
 		let mut reserve_players = Vec::new();
 
-		for line in reader.lines() {
-			match line {
-				Ok(l) => match PlayerState::from_string(l) {
+		let mut lines = reader.lines();
+		loop {
+			match lines.next_line().await {
+				Ok(None) => break,
+				Ok(Some(line)) => match PlayerState::from_string(line) {
 					Ok(PlayerState::Active(p)) => active_players.push(p),
 					Ok(PlayerState::Reserve(p)) => reserve_players.push(p),
-					Err(e) if e.downcast_ref() == Some(&PlayerError::NotAPlayer) => (),
+					Err(ToolError::PlayerError(e)) if e == PlayerError::NotAPlayer => (),
 					Err(e) => return Err(e),
 				},
 				Err(e) => {
-					return Err(anyhow!(
-						"Failed to read line in '{}': {}.",
-						roster_file.path.display(),
-						e.to_string()
-					))
+					return Err(RosterFileError::ReadLineFailure(
+						roster_file.path.display().to_string(),
+						e.to_string(),
+					)
+					.into())
 				}
 			}
 		}
@@ -44,8 +45,8 @@ impl Roster {
 		Ok(Self::from_players(active_players, reserve_players))
 	}
 
-	pub fn from_toml(path: PathBuf) -> Result<Self> {
-		let roster_string = fs::read_to_string(path)?;
+	pub async fn from_toml(path: PathBuf) -> Result<Self, ToolError> {
+		let roster_string = fs::read_to_string(path).await?;
 		Ok(toml::from_str(&roster_string)?)
 	}
 
@@ -97,23 +98,13 @@ impl Roster {
 	}
 }
 
-#[derive(Error, Debug, PartialEq)]
-pub enum RosterFileError {
-	#[error("Not a roster file.")]
-	NotARosterFile,
-	#[error("Roster file is missing a header.")]
-	MissingHeader,
-	#[error("File extension '{0:?}' couldn't be converted")]
-	InvalidExtension(OsString),
-}
-
 pub struct RosterFile {
 	pub path: PathBuf,
 	pub team: String,
 }
 
 impl RosterFile {
-	pub fn get_rosterfile(path: PathBuf) -> Result<RosterFile> {
+	pub async fn get_rosterfile(path: PathBuf) -> Result<RosterFile, ToolError> {
 		let file_extension = Path::new(&path)
 			.extension()
 			.ok_or_else(|| RosterFileError::NotARosterFile)?
@@ -125,10 +116,10 @@ impl RosterFile {
 			return Err(RosterFileError::NotARosterFile.into());
 		}
 
-		let file = File::open(&path)?;
+		let file = File::open(&path).await?;
 		let mut reader = BufReader::new(file);
 		let mut file_header = String::new();
-		reader.read_line(&mut file_header)?;
+		reader.read_line(&mut file_header).await?;
 		let file_header = file_header.trim();
 		let team = file_header.replace('-', "").trim().to_string();
 
@@ -139,15 +130,18 @@ impl RosterFile {
 		Ok(RosterFile { path, team })
 	}
 
-	pub(crate) fn get_rosterfiles(folder: &PathBuf) -> Result<Vec<RosterFile>> {
+	pub(crate) async fn get_rosterfiles(folder: &PathBuf) -> Result<Vec<RosterFile>, ToolError> {
 		let mut rosterfiles = Vec::new();
-		let entries = fs::read_dir(folder)?;
+		let mut entries = fs::read_dir(folder).await?;
 
-		for entry in entries {
-			match entry {
-				Ok(entry) => match Self::get_rosterfile(entry.path()) {
+		loop {
+			match entries.next_entry().await {
+				Ok(None) => break,
+				Ok(Some(entry)) => match Self::get_rosterfile(entry.path()).await {
 					Ok(r) => rosterfiles.push(r),
-					Err(e) if e.downcast_ref() == Some(&RosterFileError::NotARosterFile) => (),
+					Err(ToolError::RosterFileError(e)) if e == RosterFileError::NotARosterFile => {
+						()
+					}
 					Err(e) => return Err(e),
 				},
 				Err(e) => return Err(e.into()),

@@ -1,6 +1,8 @@
 use lineupper::player::{Medal, Position};
 use tools::Tool;
 
+use crate::tools::WorkUpdate;
+
 pub mod messenger;
 pub mod roster_editor;
 pub mod tools;
@@ -26,5 +28,6 @@ pub enum Message {
 	ExportPressed,
 	BrowseSource(Tool),
 	BrowseDestination(Tool),
-	Run(Tool),
+	RunTool(Tool),
+	UpdateTool(Tool, WorkUpdate),
 }
