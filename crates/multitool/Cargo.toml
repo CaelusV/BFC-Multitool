@@ -10,10 +10,11 @@ winres = "0.1"
 
 [dependencies]
 anyhow.workspace = true
-iced = { version = "0.14", features = ["image"]}
+iced.workspace = true
 image.workspace = true
 lineupper.workspace = true
 rfd = "0.17"
+shared.workspace = true
 statter.workspace = true
 strum.workspace = true
 strum_macros.workspace = true

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, VariantArray};
 use thiserror::Error;
@@ -22,6 +22,8 @@ pub(crate) enum PlayerError {
 	MissingAttributes(String),
 	#[error("String isn't a player.")]
 	NotAPlayer,
+	#[error("'{0}' is not a player position.")]
+	NotAPosition(String),
 }
 
 pub enum PlayerState {
@@ -79,7 +81,7 @@ impl PlayerState {
 			};
 
 		let position = Position::try_from(parts[2].trim())
-			.map_err(|_| anyhow!("'{}' is not a player position.", parts[2].trim()))?;
+			.map_err(|_| PlayerError::NotAPosition(parts[2].trim().to_string()))?;
 
 		let mut name = parts[1].to_string();
 

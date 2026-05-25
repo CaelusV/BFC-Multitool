@@ -1512,6 +1512,7 @@ dependencies = [
  "iced_core",
  "log",
  "rustc-hash 2.1.1",
+ "tokio",
  "wasm-bindgen-futures",
  "wasmtimer",
 ]
@@ -1570,6 +1571,7 @@ dependencies = [
  "iced_core",
  "iced_futures",
  "raw-window-handle",
+ "sipper",
  "thiserror 2.0.18",
 ]
 
@@ -1909,11 +1911,14 @@ name = "lineupper"
 version = "1.1.0"
 dependencies = [
  "anyhow",
+ "iced",
  "image",
  "serde",
+ "shared",
  "strum",
  "strum_macros",
  "thiserror 2.0.18",
+ "tokio",
  "toml 1.1.2+spec-1.1.0",
 ]
 
@@ -2058,6 +2063,7 @@ dependencies = [
  "image",
  "lineupper",
  "rfd",
+ "shared",
  "statter",
  "strum",
  "strum_macros",
@@ -3240,6 +3246,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared"
+version = "1.1.0"
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3278,6 +3288,16 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "sipper"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bccb4192828b3d9a08e0b5a73f17795080dfb278b50190216e3ae2132cf4f95"
+dependencies = [
+ "futures",
+ "pin-project-lite",
+]
 
 [[package]]
 name = "skrifa"
@@ -3452,9 +3472,12 @@ name = "statter"
 version = "1.1.0"
 dependencies = [
  "anyhow",
+ "iced",
  "serde",
+ "shared",
  "strum_macros",
  "thiserror 2.0.18",
+ "tokio",
  "toml 1.1.2+spec-1.1.0",
 ]
 
@@ -3646,6 +3669,16 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "tokio"
+version = "1.52.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
+dependencies = [
+ "bytes",
+ "pin-project-lite",
+]
 
 [[package]]
 name = "toml"

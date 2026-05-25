@@ -192,8 +192,8 @@ impl Application {
 			Message::BrowseSource(tool) => {
 				if let Some(path) = rfd::FileDialog::new().pick_folder() {
 					match tool {
-						Tool::LineUpper => self.tools.lineupper_source = Some(path),
-						Tool::Statter => self.tools.statter_source = Some(path),
+						Tool::LineUpper => self.tools.lineupper.source = Some(path),
+						Tool::Statter => self.tools.statter.source = Some(path),
 					}
 				}
 				Task::none()
@@ -201,43 +201,53 @@ impl Application {
 			Message::BrowseDestination(tool) => {
 				if let Some(path) = rfd::FileDialog::new().pick_folder() {
 					match tool {
-						Tool::LineUpper => self.tools.lineupper_destination = Some(path),
-						Tool::Statter => self.tools.statter_destination = Some(path),
+						Tool::LineUpper => self.tools.lineupper.destination = Some(path),
+						Tool::Statter => self.tools.statter.destination = Some(path),
 					}
 				}
 				Task::none()
 			}
-			Message::Run(tool) => {
+			Message::RunTool(tool) => {
 				let (source, destination) = match tool {
 					Tool::LineUpper => (
-						self.tools.lineupper_source.as_ref(),
-						self.tools.lineupper_destination.as_ref(),
+						self.tools.lineupper.source.as_ref(),
+						self.tools.lineupper.destination.as_ref(),
 					),
 					Tool::Statter => (
-						self.tools.statter_source.as_ref(),
-						self.tools.statter_destination.as_ref(),
+						self.tools.statter.source.as_ref(),
+						self.tools.statter.destination.as_ref(),
 					),
 				};
 
-				if let (Some(source), Some(destination)) = (source, destination) {
-					let error = match tool {
-						Tool::LineUpper => {
-							lineupper::create::create_team_and_portraits(source, destination)
-						}
-						Tool::Statter => {
-							statter::entry::run_tournaments(source, destination)
-						}
-					};
-					if let Err(e) = error {
-						Messenger::error_message("Run Error", &e.to_string());
-					}
+				let task = if let (Some(source), Some(destination)) = (source, destination) {
+				    self.tools.start(tool, source.clone(), destination.clone())
 				} else {
 					Messenger::info_message(
 						"Run Error",
 						"A source or destination folder wasn't selected.",
 					);
-				}
-				Task::none()
+					return Task::none();
+				};
+				task.map(Message::UpdateTool)
+
+				// if let (Some(source), Some(destination)) = (source, destination) {
+				// 	let error = match tool {
+				// 		Tool::LineUpper => {
+				// 			lineupper::create::create_team_and_portraits(source, destination)
+				// 		}
+				// 		Tool::Statter => {
+				// 			statter::entry::run_tournaments(source, destination)
+				// 		}
+				// 	};
+				// 	if let Err(e) = error {
+				// 		Messenger::error_message("Run Error", &e.to_string());
+				// 	}
+				// } else {
+				// 	Messenger::info_message(
+				// 		"Run Error",
+				// 		"A source or destination folder wasn't selected.",
+				// 	);
+				// }
 			}
 		}
 	}

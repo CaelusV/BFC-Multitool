@@ -26,5 +26,5 @@ pub enum Message {
 	ExportPressed,
 	BrowseSource(Tool),
 	BrowseDestination(Tool),
-	Run(Tool),
+	RunTool(Tool),
 }
