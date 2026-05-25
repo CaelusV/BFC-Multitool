@@ -83,15 +83,15 @@ impl Application {
 				self.page = Page::Tools;
 				Task::none()
 			}
-			Message::NameChanged(name, row) => {
+			Message::NameChanged(row, name) => {
 				self.roster_editor.rows[row].name = name;
 				Task::none()
 			}
-			Message::PositionChanged(position, row) => {
+			Message::PositionChanged(row, position) => {
 				self.roster_editor.rows[row].position.set(position);
 				Task::none()
 			}
-			Message::MedalChanged(medal, row) => {
+			Message::MedalChanged(row, medal) => {
 				self.roster_editor.rows[row].medal.set(medal);
 				Task::none()
 			}
@@ -99,11 +99,11 @@ impl Application {
 				self.roster_editor.captain = Some(row);
 				Task::none()
 			}
-			Message::ActiveChanged(is_active, row) => {
+			Message::ActiveChanged(row, is_active) => {
 				self.roster_editor.rows[row].active = is_active;
 				Task::none()
 			}
-			Message::PortraitNameChanged(pname, row) => {
+			Message::PortraitNameChanged(row, pname) => {
 				self.roster_editor.rows[row].portrait_name = pname;
 				Task::none()
 			}
@@ -220,16 +220,14 @@ impl Application {
 				};
 
 				if let (Some(source), Some(destination)) = (source, destination) {
-					let error;
-					match tool {
+					let error = match tool {
 						Tool::LineUpper => {
-							error =
-								lineupper::create::create_team_and_portraits(source, destination)
+							lineupper::create::create_team_and_portraits(source, destination)
 						}
 						Tool::Statter => {
-							error = statter::entry::run_tournaments(source, destination)
+							statter::entry::run_tournaments(source, destination)
 						}
-					}
+					};
 					if let Err(e) = error {
 						Messenger::error_message("Run Error", &e.to_string());
 					}

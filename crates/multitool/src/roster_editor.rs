@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use iced::{
-	font,
+	font, Function,
 	widget::{button, column, combo_box, radio, row, scrollable, table, text, text_input, toggler},
 	Alignment::Center,
 	Element, Font,
@@ -76,58 +76,52 @@ impl RosterEditor {
 				.align_x(Center)
 				.align_y(Center),
 			table::column(bold("Name"), |row: &RosterRow| {
-				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
 				text_input(
-					&format!("Ex: {}", Self::NAME_PLACEHOLDERS[current_row]),
+					&format!("Ex: {}", Self::NAME_PLACEHOLDERS[row.id as usize - 1]),
 					&row.name,
 				)
-				.on_input(move |n| Message::NameChanged(n, current_row))
+				.on_input(Message::NameChanged.with(row.id as usize - 1))
 			})
 			.width(TEXT_INPUT_WIDTH)
 			.align_x(Center)
 			.align_y(Center),
 			table::column(bold("Position"), |row: &RosterRow| {
-				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
 				combo_box(
 					&row.position.state,
 					"Position...",
 					row.position.selected.as_ref(),
-					move |p| Message::PositionChanged(p, current_row),
+					Message::PositionChanged.with(row.id as usize - 1),
 				)
 			})
 			.width(COMBO_BOX_WIDTH)
 			.align_x(Center)
 			.align_y(Center),
 			table::column(bold("Medal"), |row: &RosterRow| {
-				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
 				combo_box(
 					&row.medal.state,
 					"Medal...",
 					row.medal.selected.as_ref(),
-					move |m| Message::MedalChanged(m, current_row),
+					Message::MedalChanged.with(row.id as usize - 1),
 				)
 			})
 			.width(COMBO_BOX_WIDTH)
 			.align_x(Center)
 			.align_y(Center),
 			table::column(bold("Active"), |row: &RosterRow| {
-				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
-				toggler(row.active).on_toggle(move |c| Message::ActiveChanged(c, current_row))
+				toggler(row.active).on_toggle(Message::ActiveChanged.with(row.id as usize - 1))
 			})
 			.width(CHECKBOX_WIDTH)
 			.align_x(Center)
 			.align_y(Center),
 			table::column(bold("Captain"), |row: &RosterRow| {
-				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
-				radio("", current_row, self.captain, Message::CaptainChanged)
+				radio("", row.id as usize - 1, self.captain, Message::CaptainChanged)
 			})
 			.width(RADIO_WIDTH)
 			.align_x(Center)
 			.align_y(Center),
 			table::column(bold("Portrait Name (optional)"), |row: &RosterRow| {
-				let current_row = row.id as usize - 1; // Really ugly having to do this. Too bad!
 				text_input(&format!("Ex: portrait{}", &row.id), &row.portrait_name)
-					.on_input(move |n| Message::PortraitNameChanged(n, current_row))
+					.on_input(Message::PortraitNameChanged.with(row.id as usize - 1))
 			})
 			.width(TEXT_INPUT_WIDTH)
 			.align_x(Center)
