@@ -1,5 +1,5 @@
 use core::cmp::min;
-use std::cmp::{max, Ordering};
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 
@@ -551,7 +551,8 @@ impl<'a> PlayoffStage<'a> {
 
 	fn losers_bracket(&mut self) -> Result<()> {
 		let theoretical_fixtures_played = (self.tournament.playoff_teams - 2) as usize;
-		let actual_fixtures_played = self.tournament.brackets.losers.as_ref().unwrap().len();
+		let fixtures = self.tournament.brackets.losers.as_ref().unwrap();
+		let actual_fixtures_played = fixtures.len();
 
 		if theoretical_fixtures_played != actual_fixtures_played {
 			return Err(anyhow!(
@@ -560,51 +561,54 @@ impl<'a> PlayoffStage<'a> {
 			));
 		}
 
-		// Brute force amount of stages left with fictional teams. Based on the fact
-		// that the amount of losers stages increases from 0 by +1 at stage 3, 4, 6,
-		// 8, 12, 16, 24, 32, etc.
-		let mut stage_cutoff_if_n_teams = Vec::new();
-		let mut stages_left = 2u8; // Add two fake placements
-		let mut teams_left = 2u8;
-		let mut add_teams = 0u8;
-		while teams_left < self.tournament.playoff_teams {
-			stage_cutoff_if_n_teams.push(teams_left);
-			if stages_left % 2 == 0 {
-				add_teams = max(add_teams * 2, 1);
-			}
-			teams_left += add_teams;
-			stages_left += 1;
+		// Number of fixtures in a given losers stage, where n is the stage.
+		// Reverse from losers final to round 1: n=1 means losers final.
+		// stage_fixture_count = 0.5 * 2^ceil(stage / 2) = 2^ceil(stage / 2 - 1)
+		let stage_fixture_count = |stage: u8| 2usize.pow(f32::ceil(stage as f32 / 2.0 - 1.0) as u32);
+		// Almost same thing, but have to accumulate. Since the stage_fixture_count is a power of 2,
+		// we can use almost the same formula, although we don't have to subtract one from the power,
+		// and we also need to multiply by two, considering we're doing the accumulate of stages/2.
+		// This works because every even&odd pair of stages have the same amount of fixtures.
+		// If the stages supplied is odd, we have to subtract the even pair for that stage, so we don't overcount.
+		let stages_fixtures_accum = |stages: u8| (2usize.pow(f32::ceil(stages as f32 / 2.0) as u32) - 1) * 2 - stages as usize % 2 * stage_fixture_count(stages);
+		// We still have to account for the team going through the winners bracket (not -1).
+		let mut teams_left = self.tournament.playoff_teams;
+		let mut stages_left = 0;
+		// Figure out the stages left and the amount of fixtures in the outer stage.
+		while stages_fixtures_accum(stages_left) < actual_fixtures_played {
+		    stages_left += 1;
 		}
-
-		// Make sure teams_left is the real – and not fictional – amount of teams.
-		teams_left = self.tournament.playoff_teams;
+		let mut stage_fixtures = actual_fixtures_played - stages_fixtures_accum(stages_left - 1);
 
 		let mut teams_to_subtract = 0;
-		for fixture in self.tournament.brackets.losers.as_ref().unwrap() {
-			match self
-				.placements
-				.update_teams(fixture, false, &self.tournament.tournament_name)
-			{
-				Ok(v) => v,
-				Err(e) => {
-					return Err(anyhow!(
-						"{} (Losers Bracket): {e}",
-						self.tournament.tournament_name
-					))
-				}
-			};
+		for fixture in fixtures {
+    		match self
+    			.placements
+    			.update_teams(fixture, false, &self.tournament.tournament_name)
+    		{
+    			Ok(_) => (),
+    			Err(e) => {
+    				return Err(anyhow!(
+    					"{} (Losers Bracket): {e}",
+    					self.tournament.tournament_name
+    				))
+    			}
+    		};
 
-			// FIXME: Winner shouldn't need to have placement set now, as they aren't out,
-			// but grand_final depends on it. Fix in grand_final method, then remove here.
-			self.placements
-				.set_placement(fixture.loser()?.unwrap(), teams_left);
-			self.placements
-				.set_placement(fixture.winner()?.unwrap(), teams_left);
+    		// FIXME: Winner shouldn't need to have placement set now, as they aren't out,
+    		// but grand_final depends on the winner of the losers bracket to have a placemetn.
+            // Fix in grand_final method, then remove here.
+    		self.placements
+    			.set_placement(fixture.loser()?.unwrap(), teams_left);
+    		self.placements
+    			.set_placement(fixture.winner()?.unwrap(), teams_left);
 
-			// Remove teams at end of stage.
-			teams_to_subtract += 1;
-			if stage_cutoff_if_n_teams.contains(&(teams_left - teams_to_subtract)) {
-				teams_left -= teams_to_subtract;
+			stage_fixtures -= 1;
+			teams_to_subtract += 1; // We need to use teams_left unchanged for placements...
+			if stage_fixtures == 0 {
+				stages_left = stages_left - 1;
+				stage_fixtures = stage_fixture_count(stages_left);
+				teams_left -= teams_to_subtract; // ...so we only subtract when changing stages.
 				teams_to_subtract = 0;
 			}
 		}
@@ -635,13 +639,13 @@ impl<'a> PlayoffStage<'a> {
 			));
 		}
 
-		let mut stages_left = f32::ceil(f32::log2(self.tournament.playoff_teams as f32)) as u8;
 		let mut teams_left = self.tournament.playoff_teams;
-		let mut fixtures_in_stage = self.tournament.playoff_teams
-			- 2u8.pow(f32::log2(self.tournament.playoff_teams as f32) as u32);
+		let mut stages_left = f32::ceil(f32::log2(teams_left as f32)) as u8;
+		let mut stage_fixture_count = teams_left
+			- 2u8.pow(f32::log2(teams_left as f32) as u32);
 
-		if fixtures_in_stage == 0 {
-			fixtures_in_stage = self.tournament.playoff_teams / 2;
+		if stage_fixture_count == 0 {
+			stage_fixture_count = self.tournament.playoff_teams / 2;
 		}
 
 		for fixture in &self.tournament.brackets.winners {
@@ -649,7 +653,7 @@ impl<'a> PlayoffStage<'a> {
 				.placements
 				.update_teams(fixture, false, &self.tournament.tournament_name)
 			{
-				Ok(v) => v,
+				Ok(_) => (),
 				Err(e) => {
 					return Err(anyhow!(
 						"{} (Winners Bracket): {e}",
@@ -662,12 +666,12 @@ impl<'a> PlayoffStage<'a> {
 			self.placements
 				.set_placement(fixture.winner()?.unwrap(), teams_left);
 
-			fixtures_in_stage -= 1;
+			stage_fixture_count -= 1;
 
-			if fixtures_in_stage == 0 {
+			if stage_fixture_count == 0 {
 				stages_left = stages_left - 1;
 				teams_left = 2u8.pow(stages_left as u32);
-				fixtures_in_stage = teams_left / 2;
+				stage_fixture_count = teams_left / 2;
 			}
 		}
 
