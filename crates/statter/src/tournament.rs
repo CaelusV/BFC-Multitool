@@ -720,6 +720,43 @@ impl<'a> PlayoffStage<'a> {
 	}
 }
 
+#[derive(
+	Debug, Clone, Copy, Deserialize, Serialize, strum_macros::Display,
+)]
+pub enum PointSystem {
+    TennisV1,
+    LinearV1,
+}
+
+struct Points {
+    system: PointSystem,
+}
+
+impl Points {
+    const TENNIS_V1: [u32; 17] = [
+   		1500, 1100, 900, 750, 600, 500, 400, 300, 200, 100, 50, 25, 12, 6, 3, 1, 0,
+   	];
+    const LINEAR_V1: [u32; 17] = [
+        10_000, 9000, 8500, 7500, 7000, 6500, 6000, 5500, 5000, 4500, 4000, 3500, 3000, 2000, 1000, 100, 0
+   	];
+
+    fn new(point_system: PointSystem) -> Self {
+        Points { system: point_system}
+    }
+
+    fn get(&self, idx: usize) -> u32 {
+        let idx = match self.system {
+            PointSystem::TennisV1 => min(Self::TENNIS_V1.len() - 1, idx),
+            PointSystem::LinearV1 => min(Self::LINEAR_V1.len() - 1, idx),
+        };
+
+        match self.system {
+            PointSystem::TennisV1 => Self::TENNIS_V1[idx],
+            PointSystem::LinearV1 => Self::LINEAR_V1[idx],
+        }
+    }
+}
+
 #[derive(Deserialize)]
 pub struct Tournament {
 	pub tournament_name: String,
@@ -727,6 +764,7 @@ pub struct Tournament {
 	pub date: Datetime,
 	pub has_losers: bool, // Losers bracket.
 	pub playoff_teams: u8,
+	pub point_system: PointSystem,
 	pub brackets: Brackets,
 	pub grand_final: Option<Vec<Fixture>>,
 	pub head_to_head: Option<Vec<HeadToHead>>,
@@ -748,34 +786,30 @@ pub struct TournamentResult {
 	pub tournament_name: String,
 	pub season_num: u8,
 	pub date: Datetime,
+	point_system: PointSystem,
 	pub team_placements: Vec<TeamPlacement>,
 }
 
 impl TournamentResult {
-	// FIXME: const should be under rankings.
-	const MAX_POINT_IDX: usize = 16;
-	const POINTS: [u32; Self::MAX_POINT_IDX + 1] = [
-		1500, 1100, 900, 750, 600, 500, 400, 300, 200, 100, 50, 25, 12, 6, 3, 1, 0,
-	];
-
 	pub fn from(team_placements: Vec<TeamPlacement>, tourny: Tournament) -> Self {
 		Self {
 			tournament_name: tourny.tournament_name,
 			season_num: tourny.season_num,
 			date: tourny.date,
+			point_system: tourny.point_system,
 			team_placements,
 		}
 	}
 
 	pub fn get_teams_ranked(&self) -> Vec<RankedTeam> {
+	    let points = Points::new(self.point_system);
 		self.team_placements
 			.iter()
 			.map(|tp| {
 				let placement = tp.placement.unwrap();
-				let points = Self::POINTS[min(Self::MAX_POINT_IDX, placement as usize - 1)];
 				RankedTeam {
 					name: tp.team.name.clone(),
-					ranking_points: vec![points],
+					ranking_points: vec![points.get(placement as usize - 1)],
 					ranks: Vec::new(),
 				}
 			})

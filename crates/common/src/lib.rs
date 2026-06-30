@@ -35,6 +35,9 @@ pub enum TeamName {
 	#[serde(rename = "Fink Ployd")]
 	#[strum(to_string = "Fink Ployd")]
 	FinkPloyd,
+	#[serde(rename = "Funny Fauna")]
+	#[strum(to_string = "Funny Fauna")]
+	FunnyFauna,
 	Gambit,
 	#[serde(rename = "HmX Gaming")]
 	#[strum(to_string = "HmX Gaming")]
