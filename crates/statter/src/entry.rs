@@ -40,6 +40,8 @@ pub fn run_tournaments(
 
 			let tournament: Tournament = toml::from_str(&fs::read_to_string(cup).await?)?;
 			let mut teams_results = tournament.run()?;
+			let mut tournament_goal_scorers = Vec::new();
+			let mut tournament_assisters = Vec::new();
 
 			// Add tournament team stats to teams_total_stats stats.
 			for tp in &mut teams_results {
@@ -52,11 +54,25 @@ pub fn run_tournaments(
 					))?,
 					tournament.date,
 				);
-				// Add the tournament to the team.
+				// Add the tournament participation to the team.
 				if let Some(p) = &mut tp.team.participations {
 					p.push(participation);
 				} else {
 					tp.team.participations = Some(vec![participation]);
+				}
+
+				for (player, other_goals) in tp.team.scorers.iter() {
+					match tournament_goal_scorers.iter_mut().find(|(p, _, t)| p == player && *t == tp.team.name) {
+	                    Some((_, goals, _)) => *goals += other_goals,
+						None => tournament_goal_scorers.push((player.to_owned(), *other_goals, tp.team.name)),
+					}
+				}
+
+				for (player, other_assists) in tp.team.assisters.iter() {
+					match tournament_assisters.iter_mut().find(|(p, _, t)| p == player && *t == tp.team.name) {
+					    Some((_, assists, _)) => *assists += other_assists,
+						None => tournament_assisters.push((player.to_owned(), *other_assists, tp.team.name)),
+					}
 				}
 
 				teams_total_stats
@@ -66,7 +82,7 @@ pub fn run_tournaments(
 			}
 
 			// Add TournamentResult to seasons.
-			all_tournament_results.push(TournamentResult::from(teams_results, tournament));
+			all_tournament_results.push(TournamentResult::from(teams_results, tournament, tournament_goal_scorers, tournament_assisters));
 		}
 		let _ = progress
 			.send(Progress {

@@ -2,8 +2,7 @@ use serde::Serialize;
 
 use crate::{fixture::GreatestFixture, tournament::Participation};
 use common::{
-	errors::{TeamError, ToolError},
-	TeamName,
+	PlayerName, TeamName, errors::{TeamError, ToolError},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -73,7 +72,9 @@ pub struct Team {
 	pub wins: u32,
 	pub draws: u32,
 	pub losses: u32,
-	// We don't want these to show up in tournament file.
+	pub scorers: Vec<(PlayerName, u32)>,
+	pub assisters: Vec<(PlayerName, u32)>,
+	// Don't want these to show up in tournament file.
 	greatest_win: Option<GreatestFixture>,
 	greatest_loss: Option<GreatestFixture>,
 	pub matchups: Option<Vec<MatchupHistory>>,
@@ -96,6 +97,8 @@ impl Team {
 			greatest_loss: None,
 			matchups: None,
 			participations: None,
+			scorers: Vec::new(),
+			assisters: Vec::new(),
 		}
 	}
 
@@ -112,6 +115,21 @@ impl Team {
 		self.wins += other.wins;
 		self.draws += other.draws;
 		self.losses += other.losses;
+
+		for (other_player, other_goals) in other.scorers.iter() {
+			match self.scorers.iter_mut().find(|(player, _)| player == other_player) {
+                Some((_, goals)) => *goals += other_goals,
+                None => self.scorers.push((other_player.to_owned(), *other_goals)),
+            }
+		}
+
+		for (other_player, other_assists) in other.assisters.iter() {
+			match self.assisters.iter_mut().find(|(player, _)| player == other_player) {
+                Some((_, assists)) => *assists += other_assists,
+                None => self.assisters.push((other_player.to_owned(), *other_assists)),
+            }
+		}
+
 		if let Some(other_greatest_loss) = other.greatest_loss.as_ref() {
 			self.try_add_greatest_loss(other_greatest_loss)?;
 		}

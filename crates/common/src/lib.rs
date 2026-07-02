@@ -6,6 +6,8 @@ pub struct Progress {
 	pub percent: f32,
 }
 
+pub type PlayerName = String;
+
 #[derive(
 	Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, strum_macros::Display,
 )]
@@ -169,6 +171,8 @@ pub mod errors {
 			"{0}: Comparing {1} & {2} group stage performance, but missing at least one team."
 		)]
 		ComparisonMissingTeam(String, TeamName, TeamName),
+		#[error("{0}: {1} vs {2}: Goals entered were '{3}', but found '{4}' goal scorers.")]
+		GoalsMismatch(String, TeamName, TeamName, u8, usize),
 		#[error("Missing or incorrect head-to-head: {0} ({1}): Couldn't resolve ordering between {2} and {3}.")]
 		HeadToHeadError(String, String, TeamName, TeamName),
 		#[error("{0}: Expected {1} losers bracket fixtures, found {2}. NOTICE: There are {3} teams playing.")]
@@ -189,6 +193,8 @@ pub mod errors {
 		MissingWildcard(String),
 		#[error("{0} (Playoffs): {1} vs {2} ended in draw.")]
 		PlayoffFixtureDraw(String, TeamName, TeamName),
+		#[error("{0}: {1} vs {2}: Goals entered were '{3}', but found '{4}' assists.")]
+		TooManyAssists(String, TeamName, TeamName, u8, usize),
 		#[error("{0} ({1}): {2}")]
 		UpdateTeamsFailure(String, String, String),
 		#[error("This should never fail: SORTING_PREV_FIXTURE_ERROR.")]

@@ -14,6 +14,10 @@ pub struct Fixture {
 	pub score2: u8,
 	pub pen1: Option<u8>,
 	pub pen2: Option<u8>,
+	pub scorers1: Vec<String>,
+	pub scorers2: Vec<String>,
+	pub assisters1: Vec<String>,
+	pub assisters2: Vec<String>,
 	#[serde(rename = "group_id")]
 	pub group: Option<GroupID>,
 }
@@ -53,7 +57,7 @@ impl Fixture {
 				.into())
 			}
 			_ => (),
-		}
+		};
 
 		let winner = if self.pen1.is_none() {
 			if self.score1 > self.score2 {

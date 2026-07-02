@@ -11,7 +11,7 @@ use crate::rankings::RankedTeam;
 use crate::team::{MatchupHistory, Team, TeamPlacement};
 use common::{
 	errors::{ToolError, TournamentError},
-	TeamName,
+	PlayerName, TeamName,
 };
 
 #[derive(Deserialize)]
@@ -788,16 +788,20 @@ pub struct TournamentResult {
 	pub date: Datetime,
 	point_system: PointSystem,
 	pub team_placements: Vec<TeamPlacement>,
+	pub scorers: Vec<(PlayerName, u32, TeamName)>,
+	pub assisters: Vec<(PlayerName, u32, TeamName)>,
 }
 
 impl TournamentResult {
-	pub fn from(team_placements: Vec<TeamPlacement>, tourny: Tournament) -> Self {
+	pub fn from(team_placements: Vec<TeamPlacement>, tourny: Tournament, goal_scorers: Vec<(PlayerName, u32, TeamName)>, assisters: Vec<(PlayerName, u32, TeamName)>) -> Self {
 		Self {
 			tournament_name: tourny.tournament_name,
 			season_num: tourny.season_num,
 			date: tourny.date,
 			point_system: tourny.point_system,
 			team_placements,
+			scorers: goal_scorers,
+			assisters
 		}
 	}
 
@@ -851,7 +855,7 @@ impl TournamentPlacements {
 		is_groups: bool,
 		tournament_name: &str,
 	) -> Result<(), ToolError> {
-		let (team_name, opponent_name, goals_for, goals_against, pen_goals_for, pen_goals_against) =
+		let (team_name, opponent_name, goals_for, goals_against, pen_goals_for, pen_goals_against, scorers_for, assists_for) =
 			match is_team1 {
 				true => (
 					fixture.team1,
@@ -860,6 +864,8 @@ impl TournamentPlacements {
 					fixture.score2,
 					fixture.pen1,
 					fixture.pen2,
+					&fixture.scorers1,
+					&fixture.assisters1,
 				),
 				false => (
 					fixture.team2,
@@ -868,8 +874,17 @@ impl TournamentPlacements {
 					fixture.score1,
 					fixture.pen2,
 					fixture.pen1,
+					&fixture.scorers2,
+					&fixture.assisters2,
 				),
-			};
+		};
+		if scorers_for.len() != goals_for as usize {
+ 	        return Err(TournamentError::GoalsMismatch(tournament_name.to_owned(), team_name, opponent_name, goals_for, scorers_for.len()).into());
+		}
+
+		if assists_for.len() > goals_for as usize {
+		    return Err(TournamentError::TooManyAssists(tournament_name.to_owned(), team_name, opponent_name, goals_for, assists_for.len()).into());
+		}
 
 		let team_entry = self
 			.entry(team_name)
@@ -877,6 +892,20 @@ impl TournamentPlacements {
 
 		team_entry.team.goals_for += goals_for as u32;
 		team_entry.team.goals_against += goals_against as u32;
+
+		for scorer in scorers_for {
+            match team_entry.team.scorers.iter_mut().find(|(p, _)| p == scorer) {
+                Some((_, goals)) => *goals += 1,
+                None => team_entry.team.scorers.push((scorer.to_owned(), 1)),
+            }
+		}
+
+		for assister in assists_for {
+		    match team_entry.team.assisters.iter_mut().find(|(p, _)| p == assister) {
+                Some((_, assists)) => *assists += 1,
+                None => team_entry.team.assisters.push((assister.to_owned(), 1)),
+            }
+		}
 
 		// Add penalties_played, penalties_goals_against, penalties_goals_for.
 		let (penalties_played, penalties_goals_against, penalties_goals_for) =
