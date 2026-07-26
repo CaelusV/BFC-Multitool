@@ -9,7 +9,17 @@ pub struct Progress {
 pub type PlayerName = String;
 
 #[derive(
-	Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, strum_macros::Display,
+	Debug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	Deserialize,
+	Serialize,
+	strum_macros::Display,
 )]
 pub enum TeamName {
 	Unknown,
@@ -111,6 +121,8 @@ pub mod errors {
 
 	#[derive(Error, Debug, Clone)]
 	pub enum EntryError {
+		#[error("Failed to retrieve matchup history for {0}.")]
+		MissingTeamMatchups(TeamName),
 		#[error("Failed to retrieve participations for {0}.")]
 		MissingTeamParticipation(TeamName),
 		#[error("{0}: No placement was found for {1}, even though they participated.")]

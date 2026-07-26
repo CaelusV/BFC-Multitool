@@ -62,16 +62,30 @@ pub fn run_tournaments(
 				}
 
 				for (player, other_goals) in tp.team.scorers.iter() {
-					match tournament_goal_scorers.iter_mut().find(|(p, _, t)| p == player && *t == tp.team.name) {
-	                    Some((_, goals, _)) => *goals += other_goals,
-						None => tournament_goal_scorers.push((player.to_owned(), *other_goals, tp.team.name)),
+					match tournament_goal_scorers
+						.iter_mut()
+						.find(|(p, _, t)| p == player && *t == tp.team.name)
+					{
+						Some((_, goals, _)) => *goals += other_goals,
+						None => tournament_goal_scorers.push((
+							player.to_owned(),
+							*other_goals,
+							tp.team.name,
+						)),
 					}
 				}
 
 				for (player, other_assists) in tp.team.assisters.iter() {
-					match tournament_assisters.iter_mut().find(|(p, _, t)| p == player && *t == tp.team.name) {
-					    Some((_, assists, _)) => *assists += other_assists,
-						None => tournament_assisters.push((player.to_owned(), *other_assists, tp.team.name)),
+					match tournament_assisters
+						.iter_mut()
+						.find(|(p, _, t)| p == player && *t == tp.team.name)
+					{
+						Some((_, assists, _)) => *assists += other_assists,
+						None => tournament_assisters.push((
+							player.to_owned(),
+							*other_assists,
+							tp.team.name,
+						)),
 					}
 				}
 
@@ -82,7 +96,12 @@ pub fn run_tournaments(
 			}
 
 			// Add TournamentResult to seasons.
-			all_tournament_results.push(TournamentResult::from(teams_results, tournament, tournament_goal_scorers, tournament_assisters));
+			all_tournament_results.push(TournamentResult::from(
+				teams_results,
+				tournament,
+				tournament_goal_scorers,
+				tournament_assisters,
+			));
 		}
 		let _ = progress
 			.send(Progress {
@@ -117,6 +136,25 @@ pub fn run_tournaments(
 					// tp.head_to_head = None; // This shouldn't be necessary anymore.
 					tp.team.reset_greatest();
 				});
+			// Also sort scorers and assisters
+			tournament_results.scorers.sort_unstable_by(
+				|(a_name, a_goals, _a_team), (b_name, b_goals, _b_team)| {
+					b_goals.cmp(a_goals).then(
+						a_name
+							.to_ascii_lowercase()
+							.cmp(&b_name.to_ascii_lowercase()),
+					)
+				},
+			);
+			tournament_results.assisters.sort_unstable_by(
+				|(a_name, a_assists, _a_team), (b_name, b_assists, _b_team)| {
+					b_assists.cmp(a_assists).then(
+						a_name
+							.to_ascii_lowercase()
+							.cmp(&b_name.to_ascii_lowercase()),
+					)
+				},
+			);
 			let tournament_results_toml = toml::to_string(&tournament_results)?;
 			let tournament_results_path = destination.join(format!(
 				"{}-results.toml",
@@ -149,10 +187,31 @@ pub fn run_tournaments(
 				.await;
 			percent_done += fraction_per_team;
 
+			// sort internals of team files first.
 			team.participations
 				.as_mut()
 				.ok_or(EntryError::MissingTeamParticipation(team.name))?
 				.sort_unstable_by_key(|p| p.date);
+			team.scorers
+				.sort_unstable_by(|(a_name, a_goals), (b_name, b_goals)| {
+					b_goals.cmp(a_goals).then(
+						a_name
+							.to_ascii_lowercase()
+							.cmp(&b_name.to_ascii_lowercase()),
+					)
+				});
+			team.assisters
+				.sort_unstable_by(|(a_name, a_assists), (b_name, b_assists)| {
+					b_assists.cmp(a_assists).then(
+						a_name
+							.to_ascii_lowercase()
+							.cmp(&b_name.to_ascii_lowercase()),
+					)
+				});
+			team.matchups
+				.as_mut()
+				.ok_or(EntryError::MissingTeamMatchups(team.name))?
+				.sort_unstable_by_key(|mh| mh.opponent_name);
 			let team_toml = toml::to_string(&team)?;
 			let team_path = destination.join(team.filename());
 			fs::write(team_path, team_toml).await?;

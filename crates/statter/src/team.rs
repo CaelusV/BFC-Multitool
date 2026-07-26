@@ -2,7 +2,8 @@ use serde::Serialize;
 
 use crate::{fixture::GreatestFixture, tournament::Participation};
 use common::{
-	PlayerName, TeamName, errors::{TeamError, ToolError},
+	errors::{TeamError, ToolError},
+	PlayerName, TeamName,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -117,17 +118,27 @@ impl Team {
 		self.losses += other.losses;
 
 		for (other_player, other_goals) in other.scorers.iter() {
-			match self.scorers.iter_mut().find(|(player, _)| player == other_player) {
-                Some((_, goals)) => *goals += other_goals,
-                None => self.scorers.push((other_player.to_owned(), *other_goals)),
-            }
+			match self
+				.scorers
+				.iter_mut()
+				.find(|(player, _)| player == other_player)
+			{
+				Some((_, goals)) => *goals += other_goals,
+				None => self.scorers.push((other_player.to_owned(), *other_goals)),
+			}
 		}
 
 		for (other_player, other_assists) in other.assisters.iter() {
-			match self.assisters.iter_mut().find(|(player, _)| player == other_player) {
-                Some((_, assists)) => *assists += other_assists,
-                None => self.assisters.push((other_player.to_owned(), *other_assists)),
-            }
+			match self
+				.assisters
+				.iter_mut()
+				.find(|(player, _)| player == other_player)
+			{
+				Some((_, assists)) => *assists += other_assists,
+				None => self
+					.assisters
+					.push((other_player.to_owned(), *other_assists)),
+			}
 		}
 
 		if let Some(other_greatest_loss) = other.greatest_loss.as_ref() {

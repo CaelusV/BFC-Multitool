@@ -720,41 +720,42 @@ impl<'a> PlayoffStage<'a> {
 	}
 }
 
-#[derive(
-	Debug, Clone, Copy, Deserialize, Serialize, strum_macros::Display,
-)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, strum_macros::Display)]
 pub enum PointSystem {
-    TennisV1,
-    LinearV1,
+	TennisV1,
+	LinearV1,
 }
 
 struct Points {
-    system: PointSystem,
+	system: PointSystem,
 }
 
 impl Points {
-    const TENNIS_V1: [u32; 17] = [
-   		1500, 1100, 900, 750, 600, 500, 400, 300, 200, 100, 50, 25, 12, 6, 3, 1, 0,
-   	];
-    const LINEAR_V1: [u32; 17] = [
-        12_000, 9500, 8000, 7000, 6000, 5500, 5000, 4500, 4000, 3500, 3000, 2500, 2000, 1500, 1000, 500, 0
-   	];
+	const TENNIS_V1: [u32; 17] = [
+		1500, 1100, 900, 750, 600, 500, 400, 300, 200, 100, 50, 25, 12, 6, 3, 1, 0,
+	];
+	const LINEAR_V1: [u32; 17] = [
+		12_000, 9500, 8000, 7000, 6000, 5500, 5000, 4500, 4000, 3500, 3000, 2500, 2000, 1500, 1000,
+		500, 0,
+	];
 
-    fn new(point_system: PointSystem) -> Self {
-        Points { system: point_system}
-    }
+	fn new(point_system: PointSystem) -> Self {
+		Points {
+			system: point_system,
+		}
+	}
 
-    fn get(&self, idx: usize) -> u32 {
-        let idx = match self.system {
-            PointSystem::TennisV1 => min(Self::TENNIS_V1.len() - 1, idx),
-            PointSystem::LinearV1 => min(Self::LINEAR_V1.len() - 1, idx),
-        };
+	fn get(&self, idx: usize) -> u32 {
+		let idx = match self.system {
+			PointSystem::TennisV1 => min(Self::TENNIS_V1.len() - 1, idx),
+			PointSystem::LinearV1 => min(Self::LINEAR_V1.len() - 1, idx),
+		};
 
-        match self.system {
-            PointSystem::TennisV1 => Self::TENNIS_V1[idx],
-            PointSystem::LinearV1 => Self::LINEAR_V1[idx],
-        }
-    }
+		match self.system {
+			PointSystem::TennisV1 => Self::TENNIS_V1[idx],
+			PointSystem::LinearV1 => Self::LINEAR_V1[idx],
+		}
+	}
 }
 
 #[derive(Deserialize)]
@@ -793,7 +794,12 @@ pub struct TournamentResult {
 }
 
 impl TournamentResult {
-	pub fn from(team_placements: Vec<TeamPlacement>, tourny: Tournament, goal_scorers: Vec<(PlayerName, u32, TeamName)>, assisters: Vec<(PlayerName, u32, TeamName)>) -> Self {
+	pub fn from(
+		team_placements: Vec<TeamPlacement>,
+		tourny: Tournament,
+		goal_scorers: Vec<(PlayerName, u32, TeamName)>,
+		assisters: Vec<(PlayerName, u32, TeamName)>,
+	) -> Self {
 		Self {
 			tournament_name: tourny.tournament_name,
 			season_num: tourny.season_num,
@@ -801,12 +807,12 @@ impl TournamentResult {
 			point_system: tourny.point_system,
 			team_placements,
 			scorers: goal_scorers,
-			assisters
+			assisters,
 		}
 	}
 
 	pub fn get_teams_ranked(&self) -> Vec<RankedTeam> {
-	    let points = Points::new(self.point_system);
+		let points = Points::new(self.point_system);
 		self.team_placements
 			.iter()
 			.map(|tp| {
@@ -855,35 +861,57 @@ impl TournamentPlacements {
 		is_groups: bool,
 		tournament_name: &str,
 	) -> Result<(), ToolError> {
-		let (team_name, opponent_name, goals_for, goals_against, pen_goals_for, pen_goals_against, scorers_for, assists_for) =
-			match is_team1 {
-				true => (
-					fixture.team1,
-					fixture.team2,
-					fixture.score1,
-					fixture.score2,
-					fixture.pen1,
-					fixture.pen2,
-					&fixture.scorers1,
-					&fixture.assisters1,
-				),
-				false => (
-					fixture.team2,
-					fixture.team1,
-					fixture.score2,
-					fixture.score1,
-					fixture.pen2,
-					fixture.pen1,
-					&fixture.scorers2,
-					&fixture.assisters2,
-				),
+		let (
+			team_name,
+			opponent_name,
+			goals_for,
+			goals_against,
+			pen_goals_for,
+			pen_goals_against,
+			scorers_for,
+			assists_for,
+		) = match is_team1 {
+			true => (
+				fixture.team1,
+				fixture.team2,
+				fixture.score1,
+				fixture.score2,
+				fixture.pen1,
+				fixture.pen2,
+				&fixture.scorers1,
+				&fixture.assisters1,
+			),
+			false => (
+				fixture.team2,
+				fixture.team1,
+				fixture.score2,
+				fixture.score1,
+				fixture.pen2,
+				fixture.pen1,
+				&fixture.scorers2,
+				&fixture.assisters2,
+			),
 		};
 		if scorers_for.len() != goals_for as usize {
- 	        return Err(TournamentError::GoalsMismatch(tournament_name.to_owned(), team_name, opponent_name, goals_for, scorers_for.len()).into());
+			return Err(TournamentError::GoalsMismatch(
+				tournament_name.to_owned(),
+				team_name,
+				opponent_name,
+				goals_for,
+				scorers_for.len(),
+			)
+			.into());
 		}
 
 		if assists_for.len() > goals_for as usize {
-		    return Err(TournamentError::TooManyAssists(tournament_name.to_owned(), team_name, opponent_name, goals_for, assists_for.len()).into());
+			return Err(TournamentError::TooManyAssists(
+				tournament_name.to_owned(),
+				team_name,
+				opponent_name,
+				goals_for,
+				assists_for.len(),
+			)
+			.into());
 		}
 
 		let team_entry = self
@@ -894,17 +922,27 @@ impl TournamentPlacements {
 		team_entry.team.goals_against += goals_against as u32;
 
 		for scorer in scorers_for {
-            match team_entry.team.scorers.iter_mut().find(|(p, _)| p == scorer) {
-                Some((_, goals)) => *goals += 1,
-                None => team_entry.team.scorers.push((scorer.to_owned(), 1)),
-            }
+			match team_entry
+				.team
+				.scorers
+				.iter_mut()
+				.find(|(p, _)| p == scorer)
+			{
+				Some((_, goals)) => *goals += 1,
+				None => team_entry.team.scorers.push((scorer.to_owned(), 1)),
+			}
 		}
 
 		for assister in assists_for {
-		    match team_entry.team.assisters.iter_mut().find(|(p, _)| p == assister) {
-                Some((_, assists)) => *assists += 1,
-                None => team_entry.team.assisters.push((assister.to_owned(), 1)),
-            }
+			match team_entry
+				.team
+				.assisters
+				.iter_mut()
+				.find(|(p, _)| p == assister)
+			{
+				Some((_, assists)) => *assists += 1,
+				None => team_entry.team.assisters.push((assister.to_owned(), 1)),
+			}
 		}
 
 		// Add penalties_played, penalties_goals_against, penalties_goals_for.
